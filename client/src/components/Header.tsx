@@ -1,10 +1,11 @@
 import { useContext } from "react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
-import { CalendarIcon, LogOut } from "lucide-react";
+import { CalendarIcon, LogOut, RefreshCw } from "lucide-react";
 import { MobileContext } from "@/context/MobileContext";
 import { AuthContext } from "@/components/AuthProvider";
 import { signOut as firebaseSignOut } from "@/lib/firebase";
+import { useToast } from "@/hooks/use-toast";
 
 interface HeaderProps {
   activeView: "calendar" | "chat";
@@ -91,12 +92,13 @@ const Header = ({ activeView, setActiveView }: HeaderProps) => {
                 )}
               </Avatar>
               <Button
-                variant="ghost"
-                size="icon"
-                className="text-neutral-600 hover:text-neutral-800"
+                variant="outline"
+                size="sm"
+                className="text-neutral-600 hover:text-neutral-800 flex items-center gap-1 text-xs"
                 onClick={handleLogout}
               >
-                <LogOut className="h-5 w-5" />
+                <LogOut className="h-3.5 w-3.5" />
+                Sign Out
               </Button>
             </div>
           )}

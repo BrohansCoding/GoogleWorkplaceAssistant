@@ -2,10 +2,11 @@ import { useState, useEffect } from "react";
 import { format, addDays, isSameDay } from "date-fns";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ChevronLeft, ChevronRight, Users, VideoIcon, MapPin } from "lucide-react";
+import { ChevronLeft, ChevronRight, Users, VideoIcon, MapPin, RefreshCw } from "lucide-react";
 import { useCalendar } from "@/hooks/useCalendar";
 import { CalendarEventType } from "@shared/schema";
 import { organizeEventsByHour } from "@/lib/calendarApi";
+import { useToast } from "@/hooks/use-toast";
 
 const CalendarView = () => {
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
@@ -15,6 +16,8 @@ const CalendarView = () => {
     time: string;
     events: CalendarEventType[];
   }[]>([]);
+  const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
+  const { toast } = useToast();
 
   useEffect(() => {
     fetchEvents(selectedDate);
@@ -37,6 +40,26 @@ const CalendarView = () => {
 
   const goToToday = () => {
     setSelectedDate(new Date());
+  };
+  
+  const handleRefresh = async () => {
+    try {
+      setIsRefreshing(true);
+      await fetchEvents(selectedDate);
+      toast({
+        title: "Calendar refreshed",
+        description: "Your calendar has been synced with the latest data.",
+        variant: "default",
+      });
+    } catch (error) {
+      toast({
+        title: "Refresh failed",
+        description: error instanceof Error ? error.message : "Could not refresh calendar data",
+        variant: "destructive",
+      });
+    } finally {
+      setIsRefreshing(false);
+    }
   };
 
   // Get event color based on colorId from Google Calendar
@@ -65,9 +88,19 @@ const CalendarView = () => {
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-2">
             <h2 className="text-xl font-medium text-neutral-800">My Calendar</h2>
-            {isLoading && (
+            {(isLoading || isRefreshing) && (
               <div className="animate-spin rounded-full h-4 w-4 border-2 border-neutral-300 border-t-google-blue" />
             )}
+            <Button 
+              variant="outline"
+              size="sm"
+              className="ml-2 text-xs flex items-center gap-1"
+              onClick={handleRefresh}
+              disabled={isLoading || isRefreshing}
+            >
+              <RefreshCw className="h-3 w-3" />
+              Refresh
+            </Button>
           </div>
           
           <div className="flex items-center gap-2">
