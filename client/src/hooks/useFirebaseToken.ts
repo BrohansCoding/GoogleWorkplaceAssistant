@@ -92,21 +92,17 @@ export const useFirebaseToken = (user: User | null) => {
     if (!user) return false;
     
     try {
-      // Get both tokens
-      const idToken = await getIdTokenFresh();
+      // Get a fresh Firebase ID token
+      const token = await getIdTokenFresh();
       
-      // We only attempt to get a new access token if we don't have one
-      // or if explicitly requested by calling getAccessToken() directly
-      let accessToken = lastAccessToken;
+      if (!token) return false;
       
-      if (!idToken) return false;
-      
+      // Use a simpler approach with just 'token' parameter for backwards compatibility
       const response = await fetch('/api/auth/token', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
-          idToken,
-          accessToken,
+          token, // Use the simpler 'token' parameter
           user: {
             uid: user.uid,
             displayName: user.displayName,

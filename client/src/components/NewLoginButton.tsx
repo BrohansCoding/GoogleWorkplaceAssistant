@@ -65,13 +65,14 @@ const NewLoginButton = () => {
         return;
       }
       
-      // Send both tokens to server - accessToken for Google API, idToken for Firebase auth
+      // Send tokens to server - use a simple approach with a single token parameter
+      // The server is now flexible with token parameter names
       const response = await fetch('/api/auth/google', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
-          accessToken,  // OAuth access token for Google Calendar API
-          idToken,      // Firebase ID token for authentication
+          token: accessToken,  // OAuth access token for Google Calendar API is the main token we need
+          idToken,             // Also send Firebase ID token as a separate parameter
           user: {
             uid: result.user.uid,
             displayName: result.user.displayName,
