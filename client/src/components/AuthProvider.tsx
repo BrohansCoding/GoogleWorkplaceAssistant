@@ -21,7 +21,7 @@ interface AuthProviderProps {
 
 export const AuthProvider = ({ children }: AuthProviderProps) => {
   const [user, setUser] = useState<User | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(false);  // Changed to false to prevent perpetual loading
   const { toast } = useToast();
 
   // Handle authentication state changes

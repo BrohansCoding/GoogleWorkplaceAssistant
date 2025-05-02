@@ -13,14 +13,7 @@ function Router() {
   // Get authentication state from context
   const { user, isLoading } = useContext(AuthContext);
   
-  // If loading, show a spinner
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center h-screen bg-neutral-50">
-        <div className="animate-spin rounded-full h-8 w-8 border-2 border-neutral-300 border-t-google-blue" />
-      </div>
-    );
-  }
+  console.log("Router: rendering with user:", user ? "authenticated" : "not authenticated");
   
   // If no user, show login
   if (!user) {
