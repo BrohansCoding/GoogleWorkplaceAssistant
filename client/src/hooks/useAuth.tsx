@@ -1,5 +1,5 @@
 import { useContext, useCallback, useState } from "react";
-import { AuthContext } from "@/context/AuthContext";
+import { AuthContext } from "@/components/SimpleAuthProvider";
 import { signInWithGoogle as firebaseSignInWithGoogle, signOut as firebaseSignOut } from "@/lib/firebase";
 import { useToast } from "@/hooks/use-toast";
 

@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { CalendarIcon } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { signInWithGoogle } from "@/lib/firebase";
-import { AuthContext } from "./AuthProvider";
+import { AuthContext } from "./SimpleAuthProvider";
 
 const SimpleLogin = () => {
   const { isLoading } = useContext(AuthContext);
