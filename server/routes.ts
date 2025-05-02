@@ -9,22 +9,43 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Auth routes
   app.post("/api/auth/google", async (req: Request, res: Response) => {
     try {
-      const { token, user } = req.body;
+      const { accessToken, idToken, user } = req.body;
       
-      if (!token || !user || !user.uid) {
-        return res.status(400).json({ message: "Invalid request. Token and user data required." });
+      if (!accessToken || !user || !user.uid) {
+        return res.status(400).json({ 
+          message: "Invalid request. Access token and user data required.",
+          details: {
+            accessTokenReceived: !!accessToken,
+            idTokenReceived: !!idToken,
+            userDataReceived: !!user
+          }
+        });
       }
       
-      // Store user in session
-      // TypeScript workaround for session properties
+      console.log("Auth tokens received:");
+      console.log("- Access token present:", !!accessToken);
+      console.log("- Access token length:", accessToken?.length);
+      console.log("- ID token present:", !!idToken);
+      
+      // Store user and tokens in session
       if (req.session) {
-        console.log("Storing user and token in session");
+        console.log("Storing user and tokens in session");
         (req.session as any).user = user;
-        (req.session as any).googleToken = token;
-        (req.session as any).tokenTimestamp = Date.now(); // Track token age
+        
+        // Store the OAuth access token for Google Calendar API
+        (req.session as any).googleToken = accessToken;
+        (req.session as any).tokenTimestamp = Date.now();
+        
+        // Also store the Firebase ID token for other authentication needs
+        if (idToken) {
+          (req.session as any).firebaseIdToken = idToken;
+        }
         
         // Verify storage
-        console.log("Verifying token storage, token exists:", !!(req.session as any).googleToken);
+        console.log("Session data stored:");
+        console.log("- User:", !!(req.session as any).user);
+        console.log("- Google token:", !!(req.session as any).googleToken);
+        console.log("- Firebase ID token:", !!(req.session as any).firebaseIdToken);
       } else {
         console.log("Session object not available");
       }
@@ -42,18 +63,35 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Endpoint for token refreshing
   app.post("/api/auth/token", async (req: Request, res: Response) => {
     try {
-      const { token, user } = req.body;
+      const { accessToken, idToken, user } = req.body;
       
-      if (!token || !user || !user.uid) {
-        return res.status(400).json({ message: "Invalid request. Token and user data required." });
+      if (!accessToken || !user || !user.uid) {
+        return res.status(400).json({ 
+          message: "Invalid request. Access token and user data required.",
+          details: {
+            accessTokenReceived: !!accessToken,
+            idTokenReceived: !!idToken,
+            userDataReceived: !!user
+          }
+        });
       }
+      
+      console.log("Token refresh request received:");
+      console.log("- Access token present:", !!accessToken);
+      console.log("- Access token length:", accessToken?.length);
       
       if (req.session) {
         // Update token in session
         console.log("Updating token in session");
-        (req.session as any).googleToken = token;
+        (req.session as any).googleToken = accessToken;
         (req.session as any).tokenTimestamp = Date.now(); // Track token age
         
+        // Update Firebase ID token if provided
+        if (idToken) {
+          (req.session as any).firebaseIdToken = idToken;
+        }
+        
+        console.log("Token updated successfully");
         return res.status(200).json({ message: "Token updated successfully" });
       } else {
         console.log("Session object not available for token update");

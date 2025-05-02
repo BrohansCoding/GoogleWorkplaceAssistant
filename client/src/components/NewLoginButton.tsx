@@ -16,14 +16,23 @@ const NewLoginButton = () => {
       
       const auth = getAuth(app);
       const provider = new GoogleAuthProvider();
+      
+      // Critical: Ensure we request the correct scopes for Google Calendar API
+      // These scopes determine what the access token can be used for
       provider.addScope('https://www.googleapis.com/auth/calendar.readonly');
       provider.addScope('profile');
       provider.addScope('email');
       
+      // Set login_hint to ensure the user gets consistent login experience
+      provider.setCustomParameters({
+        prompt: 'consent', // Force consent screen to ensure we get refresh token
+        access_type: 'offline' // Get a refresh token
+      });
+      
       const result = await signInWithPopup(auth, provider);
       console.log("Sign in successful!", result.user.displayName);
       
-      // Get an access token for Google Calendar API
+      // Get OAuth access token for Google Calendar API - this is crucial
       const credential = GoogleAuthProvider.credentialFromResult(result);
       
       // Debug the credential details
@@ -33,54 +42,52 @@ const NewLoginButton = () => {
         tokenLength: credential.accessToken?.length
       } : "No credential");
       
-      // Get access token from credential
-      let token = credential?.accessToken;
-      console.log("Access token from credential:", token ? `Present (length: ${token.length})` : "Missing");
+      // The OAuth access token is what we need for Google Calendar API
+      const accessToken = credential?.accessToken;
+      console.log("Access token:", accessToken ? `Present (length: ${accessToken.length})` : "Missing");
       
-      // IMPORTANT: We need to use the ID token for Firebase Auth but the access token for Google API
-      // The access token is specifically for Google Calendar API
-      if (!token && result.user) {
-        console.log("No access token found, this will cause Google Calendar API to fail");
-        
-        // We'll still try to get an ID token for authentication with our server
-        try {
-          const idToken = await getIdToken(result.user, true);
-          console.log("Got Firebase ID token as fallback");
-          // Note: ID token cannot be used for Google Calendar API directly
-          token = idToken;
-        } catch (tokenError) {
-          console.error("Error getting ID token:", tokenError);
-        }
+      // Also get ID token for Firebase Auth verification on our server
+      let idToken = null;
+      try {
+        idToken = result.user ? await getIdToken(result.user, true) : null;
+        console.log("ID token retrieved:", idToken ? `Present (length: ${idToken.length})` : "Missing");
+      } catch (tokenError) {
+        console.error("Error getting ID token:", tokenError);
       }
       
-      console.log("Final token to be sent to server:", token ? `Present (length: ${token.length})` : "No token");
-      
-      if (token) {
-        // Send token to server
-        const response = await fetch('/api/auth/google', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ 
-            token, 
-            user: {
-              uid: result.user.uid,
-              displayName: result.user.displayName,
-              email: result.user.email,
-              photoURL: result.user.photoURL
-            }
-          }),
-          credentials: 'include'
+      if (!accessToken) {
+        console.error("No access token found! Google Calendar API will fail without it.");
+        toast({
+          title: "Authentication issue",
+          description: "Failed to get access to your Google Calendar. Please try again.",
+          variant: "destructive",
         });
-        
-        if (!response.ok) {
-          console.error("Error sending token to server:", await response.text());
-          throw new Error("Failed to authenticate with server");
-        }
-        
-        console.log("Server authentication successful");
-      } else {
-        console.warn("No token available after sign-in, some features may not work");
+        return;
       }
+      
+      // Send both tokens to server - accessToken for Google API, idToken for Firebase auth
+      const response = await fetch('/api/auth/google', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          accessToken,  // OAuth access token for Google Calendar API
+          idToken,      // Firebase ID token for authentication
+          user: {
+            uid: result.user.uid,
+            displayName: result.user.displayName,
+            email: result.user.email,
+            photoURL: result.user.photoURL
+          }
+        }),
+        credentials: 'include'
+      });
+      
+      if (!response.ok) {
+        console.error("Error sending tokens to server:", await response.text());
+        throw new Error("Failed to authenticate with server");
+      }
+      
+      console.log("Server authentication successful");
       
       toast({
         title: "Sign in successful",

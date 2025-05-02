@@ -2,6 +2,7 @@ import { CalendarEventType } from '@shared/schema';
 import { format, startOfDay, endOfDay, addDays, parseISO } from 'date-fns';
 import { auth } from '@/lib/firebase-setup';
 import { getIdToken } from 'firebase/auth';
+import { GoogleAuthProvider } from 'firebase/auth';
 
 // Internal function for handling token refresh if needed
 const makeCalendarRequest = async (url: string): Promise<any> => {
@@ -23,21 +24,35 @@ const makeCalendarRequest = async (url: string): Promise<any> => {
         console.log('Token expired, refreshing...');
         
         try {
-          // Get a fresh ID token from Firebase
-          const newToken = await getIdToken(auth.currentUser, true);
+          // We need two tokens:
+          // 1. OAuth access token for Google Calendar API via reauthentication
+          // 2. Firebase ID token for authentication with our server
           
-          // Send the refreshed token to our backend
+          // Get a fresh ID token from Firebase
+          const idToken = await getIdToken(auth.currentUser, true);
+          console.log('Got fresh ID token for authentication');
+          
+          // For Google Calendar API, we need to re-authenticate to get a fresh OAuth token
+          // However, this would require opening a popup, which can be disruptive
+          // We'll notify the user they need to reauthenticate
+          
+          // Note: In a production app, you'd implement a proper OAuth refresh token flow
+          // This is a simplified approach that focuses on fixing the immediate issue
+          
+          // Send the refreshed tokens to our backend
           const tokenResponse = await fetch('/api/auth/token', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ 
-              token: newToken, 
+              idToken, 
+              // We don't have a new accessToken without re-auth, so we don't include it
               user: {
                 uid: auth.currentUser.uid,
                 displayName: auth.currentUser.displayName,
                 email: auth.currentUser.email,
                 photoURL: auth.currentUser.photoURL
-              }
+              },
+              authError: "OAuth token expired, need re-authentication"
             }),
             credentials: 'include'
           });
@@ -46,21 +61,12 @@ const makeCalendarRequest = async (url: string): Promise<any> => {
             throw new Error('Failed to refresh token on server');
           }
           
-          // Retry the original request now that we have a fresh token
-          console.log('Token refreshed, retrying request...');
-          const retryResponse = await fetch(url, {
-            method: 'GET',
-            credentials: 'include',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-          });
+          // For this demo, we'll warn the user they need to re-login since
+          // we can't silently refresh the OAuth token without a proper refresh token
+          console.warn('OAuth token expired, user needs to re-login to access Google Calendar');
           
-          if (!retryResponse.ok) {
-            throw new Error(`Retry failed: ${retryResponse.status}`);
-          }
-          
-          return await retryResponse.json();
+          // Throw a specific error that the UI can handle
+          throw new Error('OAUTH_EXPIRED');
         } catch (refreshError) {
           console.error('Error refreshing token:', refreshError);
           throw new Error('Failed to refresh authentication');
