@@ -2,15 +2,17 @@ import { useState, useContext } from "react";
 import Header from "@/components/Header";
 import CalendarView from "@/components/CalendarView";
 import ChatInterface from "@/components/ChatInterface";
+import FoldersView from "@/components/FoldersView";
+import EmailView from "@/components/EmailView";
 import { Button } from "@/components/ui/button";
-import { CalendarIcon, MessageSquare } from "lucide-react";
+import { CalendarIcon, MessageSquare, Folder, Mail } from "lucide-react";
 import { AuthContext } from "@/components/SimpleAuthProvider";
 import { MobileContext } from "@/context/MobileContext";
 
 const Home = () => {
   const { user } = useContext(AuthContext);
   const mobileContext = useContext(MobileContext);
-  const [activeView, setActiveView] = useState<"calendar" | "chat">("calendar");
+  const [activeView, setActiveView] = useState<"calendar" | "chat" | "folders" | "email">("calendar");
   
   // Get mobile state safely
   const isMobile = mobileContext?.isMobile || false;
@@ -18,58 +20,68 @@ const Home = () => {
   console.log("Home: User authenticated, showing main app", user?.uid);
   
   return (
-    <div className="h-screen flex flex-col">
+    <div className="min-h-screen flex flex-col bg-gradient-to-br from-blue-50 to-indigo-50">
       <Header activeView={activeView} setActiveView={setActiveView} />
       
-      <main className="flex flex-1 overflow-hidden">
-        {/* Always show both calendar and chat side by side on desktop */}
-        {!isMobile && (
-          <>
-            <div className="w-3/5 h-full border-r border-border">
-              <CalendarView />
-            </div>
-            <div className="w-2/5 h-full">
-              <ChatInterface />
-            </div>
-          </>
-        )}
-        
-        {/* On mobile, show only the active view */}
-        {isMobile && activeView === "calendar" && (
-          <div className="w-full h-full">
-            <CalendarView />
-          </div>
-        )}
-        
-        {isMobile && activeView === "chat" && (
-          <div className="w-full h-full">
-            <ChatInterface />
-          </div>
-        )}
+      <main className="flex flex-1 overflow-hidden p-4">
+        <div className="w-full h-full rounded-xl overflow-hidden shadow-lg border border-white/40 bg-white/30 backdrop-blur-sm">
+          {/* Render the active view */}
+          {activeView === "calendar" && <CalendarView />}
+          {activeView === "folders" && <FoldersView />}
+          {activeView === "email" && <EmailView />}
+          {activeView === "chat" && <ChatInterface />}
+        </div>
       </main>
       
       {/* Mobile Navigation */}
       {isMobile && (
-        <div className="border-t border-border bg-card">
+        <div className="border-t border-indigo-100 bg-white/80 backdrop-blur-md">
           <div className="flex justify-around">
             <Button
               variant="ghost"
               className={`flex flex-col items-center py-2 px-4 ${
                 activeView === "calendar" 
-                  ? "text-primary border-t-2 border-primary -mt-[2px]" 
-                  : "text-muted-foreground"
+                  ? "text-indigo-700 border-t-2 border-indigo-500 -mt-[2px]" 
+                  : "text-gray-500"
               }`}
               onClick={() => setActiveView("calendar")}
             >
               <CalendarIcon className="h-5 w-5" />
               <span className="text-xs mt-1">Calendar</span>
             </Button>
+            
+            <Button
+              variant="ghost"
+              className={`flex flex-col items-center py-2 px-4 ${
+                activeView === "folders" 
+                  ? "text-indigo-700 border-t-2 border-indigo-500 -mt-[2px]" 
+                  : "text-gray-500"
+              }`}
+              onClick={() => setActiveView("folders")}
+            >
+              <Folder className="h-5 w-5" />
+              <span className="text-xs mt-1">Folders</span>
+            </Button>
+            
+            <Button
+              variant="ghost"
+              className={`flex flex-col items-center py-2 px-4 ${
+                activeView === "email" 
+                  ? "text-indigo-700 border-t-2 border-indigo-500 -mt-[2px]" 
+                  : "text-gray-500"
+              }`}
+              onClick={() => setActiveView("email")}
+            >
+              <Mail className="h-5 w-5" />
+              <span className="text-xs mt-1">Email</span>
+            </Button>
+            
             <Button
               variant="ghost"
               className={`flex flex-col items-center py-2 px-4 ${
                 activeView === "chat" 
-                  ? "text-primary border-t-2 border-primary -mt-[2px]" 
-                  : "text-muted-foreground"
+                  ? "text-indigo-700 border-t-2 border-indigo-500 -mt-[2px]" 
+                  : "text-gray-500"
               }`}
               onClick={() => setActiveView("chat")}
             >
