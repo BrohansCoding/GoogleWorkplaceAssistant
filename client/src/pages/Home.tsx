@@ -27,11 +27,11 @@ const Home = () => {
         <div className="w-full h-full rounded-xl overflow-hidden shadow-lg border border-gray-700 bg-gray-800/80 backdrop-blur-sm">
           {/* Render the active view */}
           {activeView === "calendar" && (
-            <div className="h-full flex flex-col lg:flex-row relative">
-              <div className="flex-1 h-full overflow-auto">
+            <div className="h-full flex flex-col lg:flex-row">
+              <div className="flex-1 h-full overflow-auto lg:pr-96">
                 <CalendarView />
               </div>
-              <div className="hidden lg:block lg:w-96 lg:border-l border-gray-700 lg:absolute lg:right-0 lg:top-0 lg:bottom-0 lg:h-full">
+              <div className="hidden lg:block lg:w-96 lg:border-l border-gray-700 lg:fixed lg:right-4 lg:top-[5.5rem] lg:bottom-4 lg:h-[calc(100vh-5.5rem-1rem)] lg:bg-gray-800/80 lg:backdrop-blur-sm lg:rounded-r-xl">
                 <ChatInterface />
               </div>
             </div>
