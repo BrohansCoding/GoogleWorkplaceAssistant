@@ -5,7 +5,7 @@ import ChatInterface from "@/components/ChatInterface";
 import FoldersView from "@/components/FoldersView";
 import EmailView from "@/components/EmailView";
 import { Button } from "@/components/ui/button";
-import { CalendarIcon, MessageSquare, Folder, Mail } from "lucide-react";
+import { CalendarIcon, MessageSquare, Folder, Mail, X } from "lucide-react";
 import { AuthContext } from "@/components/SimpleAuthProvider";
 import { MobileContext } from "@/context/MobileContext";
 
@@ -13,7 +13,7 @@ const Home = () => {
   const { user } = useContext(AuthContext);
   const mobileContext = useContext(MobileContext);
   const [activeView, setActiveView] = useState<"calendar" | "folders" | "email">("calendar");
-  const [chatOpen, setChatOpen] = useState(true);
+  const [showChat, setShowChat] = useState(true);
   
   // Get mobile state safely
   const isMobile = mobileContext?.isMobile || false;
@@ -25,41 +25,55 @@ const Home = () => {
       <Header activeView={activeView} setActiveView={setActiveView} />
       
       <main className="flex flex-1 overflow-hidden p-4">
-        <div className="w-full h-full rounded-xl overflow-hidden shadow-lg border border-gray-700 bg-gray-800/80 backdrop-blur-sm flex">
-          {/* Main Content Area */}
-          <div className="relative flex-grow h-full overflow-hidden">
-            {/* Render the active view */}
-            {activeView === "calendar" && (
-              <div className="h-full overflow-auto">
-                <CalendarView />
+        {/* Main content area with calendar/folders/email views */}
+        <div className="flex-grow h-full overflow-auto rounded-xl shadow-lg border border-gray-700 bg-gray-800/80 backdrop-blur-sm mr-0 md:mr-[320px]">
+          {activeView === "calendar" && <CalendarView />}
+          {activeView === "folders" && <FoldersView />}
+          {activeView === "email" && <EmailView />}
+        </div>
+        
+        {/* Fixed Chat Sidebar */}
+        <div 
+          className={`fixed right-0 top-0 bottom-0 w-[320px] bg-gray-800 border-l border-gray-700 shadow-lg z-10 
+            ${showChat ? 'translate-x-0' : 'translate-x-full md:translate-x-0'} 
+            transition-transform duration-300`}
+          style={{
+            top: isMobile ? '72px' : '72px',
+            height: isMobile ? 'calc(100% - 132px)' : 'calc(100% - 72px)'
+          }}
+        >
+          <div className="h-full flex flex-col">
+            {/* Chat Header */}
+            <div className="p-3 border-b border-gray-700 bg-gray-800 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <MessageSquare className="h-5 w-5 text-blue-400" />
+                <h3 className="text-sm font-medium text-gray-200">Calendar Assistant</h3>
               </div>
-            )}
-            {activeView === "folders" && <FoldersView />}
-            {activeView === "email" && <EmailView />}
-          </div>
-
-          {/* Fixed Chat Sidebar */}
-          <div className={`
-            fixed right-0 top-0 h-full w-[320px] z-10 transition-transform duration-300 ease-in-out
-            ${!isMobile ? 'lg:relative lg:translate-x-0' : ''}
-            ${(isMobile && !chatOpen) ? 'translate-x-full' : 'translate-x-0'}
-          `}
-          style={{ 
-            height: !isMobile ? '100%' : 'calc(100% - 120px)', 
-            marginTop: !isMobile ? '0' : '72px'
-          }}>
-            <div className="h-full">
-              <ChatInterface onClose={() => setChatOpen(false)} />
+              {isMobile && (
+                <Button 
+                  variant="ghost"
+                  size="icon"
+                  className="h-7 w-7 rounded-full hover:bg-gray-700"
+                  onClick={() => setShowChat(false)}
+                >
+                  <X className="h-4 w-4 text-gray-400" />
+                </Button>
+              )}
+            </div>
+            
+            {/* Chat Interface */}
+            <div className="flex-1 overflow-hidden">
+              <ChatInterface />
             </div>
           </div>
         </div>
       </main>
 
       {/* Mobile Chat Toggle Button */}
-      {isMobile && !chatOpen && (
+      {isMobile && !showChat && (
         <Button
           className="fixed bottom-20 right-4 rounded-full w-12 h-12 bg-blue-600 shadow-lg z-20 flex items-center justify-center"
-          onClick={() => setChatOpen(true)}
+          onClick={() => setShowChat(true)}
         >
           <MessageSquare className="h-5 w-5" />
         </Button>
