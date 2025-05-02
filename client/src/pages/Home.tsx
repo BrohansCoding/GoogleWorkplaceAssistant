@@ -27,9 +27,13 @@ const Home = () => {
         <div className="w-full h-full rounded-xl overflow-hidden shadow-lg border border-gray-700 bg-gray-800/80 backdrop-blur-sm">
           {/* Render the active view */}
           {activeView === "calendar" && (
-            <div className="h-full">
-              <CalendarView />
-              <ChatInterface />
+            <div className="h-full grid grid-cols-1 lg:grid-cols-4">
+              <div className="lg:col-span-3 h-full">
+                <CalendarView />
+              </div>
+              <div className="hidden lg:block sticky top-0 h-screen overflow-y-auto">
+                <ChatInterface />
+              </div>
             </div>
           )}
           {activeView === "folders" && <FoldersView />}
