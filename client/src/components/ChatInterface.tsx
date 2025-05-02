@@ -7,10 +7,7 @@ import { CalendarContext } from "@/context/CalendarContext";
 import { useToast } from "@/hooks/use-toast";
 import { 
   fetchCalendarEventsRange, 
-  calculateCalendarStats,
-  parseAIActionCommand,
-  addCalendarEvent,
-  deleteCalendarEvent
+  calculateCalendarStats
 } from "@/lib/calendarApi";
 import { subWeeks, endOfDay } from "date-fns";
 
@@ -103,128 +100,14 @@ const ChatInterface = () => {
 
         const data = await response.json();
         
-        // Check if the response contains calendar action commands
-        const { type, data: actionData, message } = parseAIActionCommand(data.response);
+        // Always provide the direct response from the AI
+        const assistantMessage: ChatMessageType = {
+          role: "assistant",
+          content: data.response,
+        };
         
-        // Handle calendar actions
-        if (type === 'ADD_EVENT') {
-          try {
-            // Show loading message
-            const tempMessage: ChatMessageType = {
-              role: "assistant",
-              content: message + "\n\nAdding event to your calendar...",
-            };
-            setMessages((prev) => [...prev, tempMessage]);
-            
-            // Create the event
-            const newEvent = await addCalendarEvent(
-              actionData.summary,
-              actionData.start,
-              actionData.end,
-              actionData.description,
-              actionData.location
-            );
-            
-            // Refresh calendar data
-            if (calendarContext) {
-              // Update events in context with the new event
-              const updatedEvents = [...events, newEvent];
-              calendarContext.setEvents(updatedEvents);
-            }
-            
-            // Add success message to chat
-            const successMessage: ChatMessageType = {
-              role: "assistant",
-              content: message + "\n\nEvent added successfully to your calendar!",
-            };
-            
-            setMessages((prev) => prev.slice(0, prev.length - 1).concat([successMessage]));
-            return successMessage;
-          } catch (error) {
-            console.error("Error adding event:", error);
-            
-            // Add error message to chat
-            let errorContent = message + "\n\nSorry, I couldn't add the event to your calendar. ";
-            
-            // Check for permission errors requiring re-auth
-            if (error instanceof Error && 
-                (error.message.includes("sign in again") || 
-                 error.message.includes("permission") || 
-                 error.message.includes("PERMISSION_DENIED"))) {
-              errorContent += "You need to sign out and sign in again to grant write permission to your calendar.";
-            } else {
-              errorContent += (error instanceof Error ? error.message : "An unexpected error occurred");
-            }
-            
-            const errorMessage: ChatMessageType = {
-              role: "assistant",
-              content: errorContent
-            };
-            
-            setMessages((prev) => prev.slice(0, prev.length - 1).concat([errorMessage]));
-            return errorMessage;
-          }
-        } else if (type === 'DELETE_EVENT') {
-          try {
-            // Show loading message
-            const tempMessage: ChatMessageType = {
-              role: "assistant",
-              content: message + "\n\nDeleting event from your calendar...",
-            };
-            setMessages((prev) => [...prev, tempMessage]);
-            
-            // Delete the event
-            await deleteCalendarEvent(actionData.id);
-            
-            // Refresh calendar data
-            if (calendarContext) {
-              // Update events in context by removing the deleted event
-              const updatedEvents = events.filter(event => event.id !== actionData.id);
-              calendarContext.setEvents(updatedEvents);
-            }
-            
-            // Add success message to chat
-            const successMessage: ChatMessageType = {
-              role: "assistant",
-              content: message + "\n\nEvent deleted successfully from your calendar!",
-            };
-            
-            setMessages((prev) => prev.slice(0, prev.length - 1).concat([successMessage]));
-            return successMessage;
-          } catch (error) {
-            console.error("Error deleting event:", error);
-            
-            // Add error message to chat
-            let errorContent = message + "\n\nSorry, I couldn't delete the event from your calendar. ";
-            
-            // Check for permission errors requiring re-auth
-            if (error instanceof Error && 
-                (error.message.includes("sign in again") || 
-                 error.message.includes("permission") || 
-                 error.message.includes("PERMISSION_DENIED"))) {
-              errorContent += "You need to sign out and sign in again to grant write permission to your calendar.";
-            } else {
-              errorContent += (error instanceof Error ? error.message : "An unexpected error occurred");
-            }
-            
-            const errorMessage: ChatMessageType = {
-              role: "assistant",
-              content: errorContent
-            };
-            
-            setMessages((prev) => prev.slice(0, prev.length - 1).concat([errorMessage]));
-            return errorMessage;
-          }
-        } else {
-          // Regular response (no calendar actions)
-          const assistantMessage: ChatMessageType = {
-            role: "assistant",
-            content: data.response,
-          };
-          
-          setMessages((prev) => [...prev, assistantMessage]);
-          return assistantMessage;
-        }
+        setMessages((prev) => [...prev, assistantMessage]);
+        return assistantMessage;
       } catch (error) {
         console.error("Error sending message:", error);
         toast({
@@ -290,7 +173,7 @@ const ChatInterface = () => {
               <Bot className="h-6 w-6 text-blue-400" />
             </div>
             <p className="text-sm text-gray-400 max-w-xs mx-auto">
-              Ask me about your schedule, upcoming meetings, or to add/remove events from your calendar.
+              Ask me about your schedule, meeting patterns, or for insights about your calendar.
             </p>
           </div>
         )}
@@ -338,7 +221,7 @@ const ChatInterface = () => {
           <div className="relative">
             <Input
               type="text"
-              placeholder="Ask about your calendar or schedule changes..."
+              placeholder="Ask about your calendar or schedule insights..."
               className="w-full pl-4 pr-12 py-2 bg-gray-900 border border-gray-700 rounded-full focus:outline-none focus:ring-1 focus:ring-blue-500"
               value={inputValue}
               onChange={(e) => setInputValue(e.target.value)}
