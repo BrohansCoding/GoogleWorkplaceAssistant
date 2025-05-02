@@ -24,14 +24,14 @@ const Home = () => {
       <Header activeView={activeView} setActiveView={setActiveView} />
       
       <main className="flex flex-1 overflow-hidden p-4">
-        <div className="w-full h-full rounded-xl overflow-auto shadow-lg border border-gray-700 bg-gray-800/80 backdrop-blur-sm">
+        <div className="w-full h-full rounded-xl overflow-hidden shadow-lg border border-gray-700 bg-gray-800/80 backdrop-blur-sm">
           {/* Render the active view */}
           {activeView === "calendar" && (
-            <div className="min-h-full flex flex-col lg:flex-row">
-              <div className="flex-1 overflow-visible">
+            <div className="h-full flex flex-col lg:flex-row relative">
+              <div className="flex-1 h-full overflow-auto">
                 <CalendarView />
               </div>
-              <div className="hidden lg:block lg:w-96 lg:border-l border-gray-700 lg:shrink-0">
+              <div className="hidden lg:block lg:w-96 lg:border-l border-gray-700 lg:absolute lg:right-0 lg:top-0 lg:bottom-0 lg:h-full">
                 <ChatInterface />
               </div>
             </div>
