@@ -592,6 +592,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
       
+      console.log("Creating event with data:", { summary, start, end, description, location });
+      
+      // Process start/end dates to ensure proper format for Google Calendar API
+      let startObj = start;
+      let endObj = end;
+      
+      // If start/end are strings, convert to proper format with timezone
+      if (typeof start === 'string') {
+        startObj = { 
+          dateTime: new Date(start).toISOString(), 
+          timeZone: "America/Chicago" 
+        };
+      }
+      
+      if (typeof end === 'string') {
+        endObj = { 
+          dateTime: new Date(end).toISOString(), 
+          timeZone: "America/Chicago"
+        };
+      }
+      
       // Create event in Google Calendar
       const response = await axios.post(
         "https://www.googleapis.com/calendar/v3/calendars/primary/events",
@@ -599,8 +620,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           summary,
           description: description || "",
           location: location || "",
-          start,
-          end
+          start: startObj,
+          end: endObj
         },
         {
           headers: {

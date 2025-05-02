@@ -83,9 +83,9 @@ export const clearOAuthToken = () => {
 const createGoogleProvider = () => {
   const provider = new GoogleAuthProvider();
   
-  // CRITICAL: These are the EXACT scopes needed for Google Calendar API
-  provider.addScope('https://www.googleapis.com/auth/calendar.readonly');
-  provider.addScope('https://www.googleapis.com/auth/calendar.events.readonly');
+  // CRITICAL: These are the EXACT scopes needed for Google Calendar API with write access
+  provider.addScope('https://www.googleapis.com/auth/calendar');           // Full access to Calendar
+  provider.addScope('https://www.googleapis.com/auth/calendar.events');    // Full access to Events
   provider.addScope('profile');
   provider.addScope('email');
   
