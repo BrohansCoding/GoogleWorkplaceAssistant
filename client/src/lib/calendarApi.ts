@@ -186,8 +186,7 @@ export const addCalendarEvent = async (
     
     if (!oauthToken) {
       // No OAuth token - need to re-authenticate for write permissions
-      clearOAuthToken(); // Clear any existing token
-      await signOut(); // Sign out completely
+      await forceReauthWithUpdatedScopes();
       throw new Error('Please sign in again to grant calendar write permission');
     }
     
@@ -234,10 +233,10 @@ export const addCalendarEvent = async (
       // Check if this is a permission error from Google
       if (errorData.error && 
           (errorData.error.includes('insufficient authentication scopes') || 
-           errorData.error.includes('PERMISSION_DENIED'))) {
-        // Clear stored tokens and force re-auth with the new scopes
-        clearOAuthToken();
-        await signOut();
+           errorData.error.includes('PERMISSION_DENIED') ||
+           errorData.code === 'PERMISSION_DENIED')) {
+        // Force re-auth with the new scopes
+        await forceReauthWithUpdatedScopes();
         throw new Error('Calendar write permission required. Please sign in again.');
       }
       
@@ -267,8 +266,7 @@ export const deleteCalendarEvent = async (eventId: string): Promise<void> => {
     
     if (!oauthToken) {
       // No OAuth token - need to re-authenticate for write permissions
-      clearOAuthToken(); // Clear any existing token
-      await signOut(); // Sign out completely
+      await forceReauthWithUpdatedScopes();
       throw new Error('Please sign in again to grant calendar write permission');
     }
     
@@ -307,10 +305,10 @@ export const deleteCalendarEvent = async (eventId: string): Promise<void> => {
       // Check if this is a permission error from Google
       if (errorData.error && 
           (errorData.error.includes('insufficient authentication scopes') || 
-           errorData.error.includes('PERMISSION_DENIED'))) {
-        // Clear stored tokens and force re-auth with the new scopes
-        clearOAuthToken();
-        await signOut();
+           errorData.error.includes('PERMISSION_DENIED') ||
+           errorData.code === 'PERMISSION_DENIED')) {
+        // Force re-auth with the new scopes
+        await forceReauthWithUpdatedScopes();
         throw new Error('Calendar write permission required. Please sign in again.');
       }
       
