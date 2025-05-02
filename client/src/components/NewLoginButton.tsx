@@ -23,22 +23,37 @@ const NewLoginButton = () => {
       const result = await signInWithPopup(auth, provider);
       console.log("Sign in successful!", result.user.displayName);
       
-      // Try to get token directly from the credential result first
+      // Get an access token for Google Calendar API
       const credential = GoogleAuthProvider.credentialFromResult(result);
-      let token = credential?.accessToken;
       
-      // If no token from credential, get a fresh ID token directly 
+      // Debug the credential details
+      console.log("Credential details:", credential ? {
+        providerId: credential.providerId,
+        hasAccessToken: !!credential.accessToken,
+        tokenLength: credential.accessToken?.length
+      } : "No credential");
+      
+      // Get access token from credential
+      let token = credential?.accessToken;
+      console.log("Access token from credential:", token ? `Present (length: ${token.length})` : "Missing");
+      
+      // IMPORTANT: We need to use the ID token for Firebase Auth but the access token for Google API
+      // The access token is specifically for Google Calendar API
       if (!token && result.user) {
-        console.log("No access token from credential, getting fresh ID token...");
+        console.log("No access token found, this will cause Google Calendar API to fail");
+        
+        // We'll still try to get an ID token for authentication with our server
         try {
-          token = await getIdToken(result.user, true);
-          console.log("Got fresh ID token");
+          const idToken = await getIdToken(result.user, true);
+          console.log("Got Firebase ID token as fallback");
+          // Note: ID token cannot be used for Google Calendar API directly
+          token = idToken;
         } catch (tokenError) {
           console.error("Error getting ID token:", tokenError);
         }
       }
       
-      console.log("Retrieved token:", token ? "Token received" : "No token");
+      console.log("Final token to be sent to server:", token ? `Present (length: ${token.length})` : "No token");
       
       if (token) {
         // Send token to server

@@ -85,11 +85,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const tokenTimestamp = (req.session as any)?.tokenTimestamp as number | undefined;
       
       // Log session information for debugging
+      console.log("\n=========== CALENDAR API REQUEST ===========");
       console.log("Session object:", req.session ? "exists" : "missing");
       console.log("Session content:", Object.keys(req.session || {}));
+      console.log("Session ID:", req.sessionID || "no session ID");
       
-      console.log("Calendar API request received:");
+      console.log("\nCalendar API request details:");
       console.log("- Token available:", !!token);
+      console.log("- Token type:", token ? typeof token : "N/A");
+      console.log("- Token length:", token ? token.length : "N/A");
       console.log("- Token age (minutes):", tokenTimestamp ? Math.floor((Date.now() - tokenTimestamp) / (1000 * 60)) : "unknown");
       console.log("- Query params:", { timeMin, timeMax });
       
@@ -105,6 +109,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Fetch events from Google Calendar API
       console.log("Fetching events from Google Calendar API...");
+      console.log("Authorization header:", `Bearer ${token.substring(0, 10)}...`);
+      
       const response = await axios.get("https://www.googleapis.com/calendar/v3/calendars/primary/events", {
         headers: {
           Authorization: `Bearer ${token}`,
@@ -126,19 +132,61 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(200).json({ events: [] });
       }
       
-      // Transform events to our format
-      const events = response.data.items.map((event: any) => ({
-        id: event.id,
-        summary: event.summary || "Untitled Event",
-        description: event.description || "",
-        location: event.location || "",
-        start: event.start,
-        end: event.end,
-        attendees: event.attendees || [],
-        colorId: event.colorId || "0",
-      }));
+      // Log sample event for debugging
+      if (response.data.items.length > 0) {
+        const sampleEvent = response.data.items[0];
+        console.log("\nSample event structure:");
+        console.log("- ID:", sampleEvent.id);
+        console.log("- Summary:", sampleEvent.summary);
+        console.log("- Start:", JSON.stringify(sampleEvent.start));
+        console.log("- End:", JSON.stringify(sampleEvent.end));
+        console.log("- Has dateTime:", !!sampleEvent.start.dateTime);
+        console.log("- Has date (all day):", !!sampleEvent.start.date);
+      }
       
-      console.log(`Successfully processed ${events.length} events`);
+      // Transform events to our format
+      const events = response.data.items.map((event: any) => {
+        // Handle all-day events which use 'date' instead of 'dateTime'
+        let start = event.start;
+        let end = event.end;
+        
+        // Convert all-day events to have dateTime format
+        if (event.start.date && !event.start.dateTime) {
+          const startDate = new Date(event.start.date);
+          const endDate = new Date(event.end.date);
+          
+          // Set to 9:00 AM for all-day events
+          startDate.setHours(9, 0, 0, 0);
+          // End time is the start of the next day in all-day events, so subtract 1 day and set to 5:00 PM
+          endDate.setDate(endDate.getDate() - 1);
+          endDate.setHours(17, 0, 0, 0);
+          
+          start = {
+            dateTime: startDate.toISOString(),
+            timeZone: event.start.timeZone
+          };
+          
+          end = {
+            dateTime: endDate.toISOString(),
+            timeZone: event.end.timeZone
+          };
+          
+          console.log(`Converted all-day event: ${event.summary}`);
+        }
+        
+        return {
+          id: event.id,
+          summary: event.summary || "Untitled Event",
+          description: event.description || "",
+          location: event.location || "",
+          start: start,
+          end: end,
+          attendees: event.attendees || [],
+          colorId: event.colorId || "0",
+        };
+      });
+      
+      console.log(`Successfully processed ${events.length} events (${events.filter(e => e.start.dateTime).length} with dateTime, ${events.length - events.filter(e => e.start.dateTime).length} all-day)`);
       return res.status(200).json({ events });
     } catch (error) {
       console.error("Error fetching calendar events:", error);
