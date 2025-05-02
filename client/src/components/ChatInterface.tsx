@@ -143,9 +143,9 @@ const ChatInterface = () => {
   };
 
   return (
-    <section className="w-full flex flex-col bg-background h-full">
+    <section className="w-full flex flex-col bg-background h-full relative">
       {/* Chat Messages Area */}
-      <div className="flex-1 overflow-y-auto p-4">
+      <div className="flex-1 overflow-y-auto p-4 pb-24">
         <div className="max-w-lg mx-auto">
           {/* Welcome Message */}
           {messages.length === 0 && (
@@ -198,8 +198,8 @@ const ChatInterface = () => {
         </div>
       </div>
       
-      {/* Chat Input Area */}
-      <div className="p-4 border-t border-border bg-card">
+      {/* Fixed Chat Input Area */}
+      <div className="fixed bottom-0 left-0 right-0 lg:left-2/3 p-4 border-t border-border bg-card shadow-lg">
         <form className="max-w-lg mx-auto" onSubmit={handleSubmit}>
           <div className="relative">
             <Input
