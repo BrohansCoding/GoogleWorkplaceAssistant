@@ -16,10 +16,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       // Store user in session
+      // TypeScript workaround for session properties
       if (req.session) {
         console.log("Storing user and token in session");
-        req.session.user = user;
-        req.session.googleToken = token;
+        (req.session as any).user = user;
+        (req.session as any).googleToken = token;
+        
+        // Verify storage
+        console.log("Verifying token storage, token exists:", !!(req.session as any).googleToken);
       } else {
         console.log("Session object not available");
       }
@@ -49,7 +53,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { timeMin, timeMax } = req.query;
       // Get token from session, handle possible TS errors with type assertion
-      const token = req.session?.googleToken as string | undefined;
+      const token = (req.session as any)?.googleToken as string | undefined;
+      
+      // Log session information for debugging
+      console.log("Session object:", req.session ? "exists" : "missing");
+      console.log("Session content:", Object.keys(req.session || {}));
       
       console.log("Calendar API request received:");
       console.log("- Token available:", !!token);
@@ -110,9 +118,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
       
+      // Handle unknown error types safely
+      const errorMessage = error instanceof Error ? error.message : String(error);
       return res.status(500).json({ 
         message: "Failed to fetch calendar events",
-        error: error.message
+        error: errorMessage
       });
     }
   });
