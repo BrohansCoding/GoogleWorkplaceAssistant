@@ -187,19 +187,19 @@ const CalendarView = () => {
                     return (
                       <div 
                         key={event.id}
-                        className={`calendar-event absolute top-0 left-0 right-0 p-2 rounded-md shadow-md transition-transform cursor-pointer hover:translate-y-[-2px] bg-opacity-20 border-l-4 backdrop-blur-sm ${
-                          eventColor === 'google-blue' ? 'bg-primary/20 border-primary' :
-                          eventColor === 'google-green' ? 'bg-green-500/20 border-green-500' :
-                          eventColor === 'google-purple' ? 'bg-purple-500/20 border-purple-500' :
-                          eventColor === 'google-red' ? 'bg-red-500/20 border-red-500' :
-                          eventColor === 'google-yellow' ? 'bg-yellow-500/20 border-yellow-500' :
-                          eventColor === 'cyan-500' ? 'bg-cyan-500/20 border-cyan-500' :
-                          eventColor === 'orange-500' ? 'bg-orange-500/20 border-orange-500' :
-                          eventColor === 'pink-500' ? 'bg-pink-500/20 border-pink-500' :
-                          eventColor === 'teal-500' ? 'bg-teal-500/20 border-teal-500' :
-                          eventColor === 'indigo-500' ? 'bg-indigo-500/20 border-indigo-500' :
-                          eventColor === 'amber-500' ? 'bg-amber-500/20 border-amber-500' :
-                          'bg-primary/20 border-primary'
+                        className={`calendar-event absolute top-0 left-0 right-0 p-2 rounded-md shadow-md transition-transform cursor-pointer hover:translate-y-[-2px] border-l-4 z-10 bg-opacity-80 ${
+                          eventColor === 'google-blue' ? 'bg-card border-primary text-foreground' :
+                          eventColor === 'google-green' ? 'bg-card border-green-500 text-foreground' :
+                          eventColor === 'google-purple' ? 'bg-card border-purple-500 text-foreground' :
+                          eventColor === 'google-red' ? 'bg-card border-red-500 text-foreground' :
+                          eventColor === 'google-yellow' ? 'bg-card border-yellow-500 text-foreground' :
+                          eventColor === 'cyan-500' ? 'bg-card border-cyan-500 text-foreground' :
+                          eventColor === 'orange-500' ? 'bg-card border-orange-500 text-foreground' :
+                          eventColor === 'pink-500' ? 'bg-card border-pink-500 text-foreground' :
+                          eventColor === 'teal-500' ? 'bg-card border-teal-500 text-foreground' :
+                          eventColor === 'indigo-500' ? 'bg-card border-indigo-500 text-foreground' :
+                          eventColor === 'amber-500' ? 'bg-card border-amber-500 text-foreground' :
+                          'bg-card border-primary text-foreground'
                         }`}
                       >
                         <div className="flex items-center justify-between">
