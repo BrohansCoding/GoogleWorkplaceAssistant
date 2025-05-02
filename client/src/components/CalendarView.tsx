@@ -315,17 +315,22 @@ const CalendarView = () => {
             </>
           ) : (
             <>
-              {/* Week View */}
-              <div className="bg-gray-800 rounded-md p-2 mb-4 border border-gray-700">
-                <div className="grid grid-cols-7 gap-1">
+              {/* Week View - Google Calendar Style */}
+              <div className="bg-gray-800 rounded-md overflow-hidden border border-gray-700 mb-4">
+                {/* Day headers */}
+                <div className="grid grid-cols-8 border-b border-gray-700">
+                  {/* Time column header */}
+                  <div className="p-2 border-r border-gray-700"></div>
+                  
+                  {/* Day column headers */}
                   {eachDayOfInterval({
                     start: startOfWeek(selectedDate),
                     end: endOfWeek(selectedDate)
-                  }).map((day, index) => (
+                  }).map((day) => (
                     <div 
                       key={day.toString()} 
-                      className={`text-center py-2 ${
-                        isSameDay(day, new Date()) ? 'bg-blue-900/30 rounded-md' : ''
+                      className={`p-2 text-center ${
+                        isSameDay(day, new Date()) ? 'bg-blue-900/30' : ''
                       }`}
                     >
                       <div className="text-xs text-gray-400">{format(day, 'EEE')}</div>
@@ -337,66 +342,138 @@ const CalendarView = () => {
                     </div>
                   ))}
                 </div>
+                
+                {isLoading ? (
+                  // Loading skeleton for week view
+                  <div className="grid grid-cols-8 h-[600px]">
+                    <div className="col-span-1 border-r border-gray-700 bg-gray-900">
+                      {Array.from({ length: 12 }).map((_, i) => (
+                        <div key={`time-skeleton-${i}`} className="h-20 border-b border-gray-700 p-1 text-right pr-2">
+                          <Skeleton className="h-4 w-10 ml-auto bg-gray-700" />
+                        </div>
+                      ))}
+                    </div>
+                    <div className="col-span-7 grid grid-cols-7">
+                      {Array.from({ length: 7 }).map((_, dayIndex) => (
+                        <div key={`day-skeleton-${dayIndex}`} className="border-r border-gray-700 last:border-r-0">
+                          {Array.from({ length: 12 }).map((_, hourIndex) => (
+                            <div key={`hour-skeleton-${hourIndex}`} className="h-20 border-b border-gray-700">
+                              {dayIndex % 3 === 0 && hourIndex % 4 === 0 && (
+                                <Skeleton className="h-16 w-5/6 mx-auto mt-2 bg-gray-700/50 rounded-md" />
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ) : (
+                  // Actual week view grid with events
+                  <div className="grid grid-cols-8 h-[600px] overflow-y-auto relative">
+                    {/* Time slots column */}
+                    <div className="col-span-1 border-r border-gray-700 bg-gray-900 sticky left-0 z-10">
+                      {Array.from({ length: 12 }).map((_, index) => {
+                        const hour = index + 9; // Start from 9 AM
+                        return (
+                          <div 
+                            key={`time-${hour}`} 
+                            className="h-20 border-b border-gray-700 p-1 text-right pr-2"
+                          >
+                            <span className="text-xs text-gray-400">
+                              {hour === 12 ? '12 PM' : hour > 12 ? `${hour - 12} PM` : `${hour} AM`}
+                            </span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                    
+                    {/* Days columns with events */}
+                    <div className="col-span-7 grid grid-cols-7 relative">
+                      {eachDayOfInterval({
+                        start: startOfWeek(selectedDate),
+                        end: endOfWeek(selectedDate)
+                      }).map((day, dayIndex) => (
+                        <div 
+                          key={`day-column-${day.toString()}`} 
+                          className={`border-r border-gray-700 last:border-r-0 relative ${
+                            isSameDay(day, new Date()) ? 'bg-blue-900/10' : ''
+                          }`}
+                        >
+                          {/* Time grid backgrounds */}
+                          {Array.from({ length: 12 }).map((_, hourIndex) => (
+                            <div 
+                              key={`hour-bg-${hourIndex}`} 
+                              className="h-20 border-b border-gray-700"
+                            />
+                          ))}
+                          
+                          {/* Events for this day */}
+                          {weekEvents
+                            .filter(event => {
+                              const eventDate = new Date(event.start.dateTime);
+                              return isSameDay(eventDate, day);
+                            })
+                            .map(event => {
+                              const startTime = new Date(event.start.dateTime);
+                              const endTime = new Date(event.end.dateTime);
+                              const eventColor = getEventColor(event.colorId);
+                              
+                              // Calculate position and height
+                              const startHour = startTime.getHours() + startTime.getMinutes() / 60;
+                              const endHour = endTime.getHours() + endTime.getMinutes() / 60;
+                              const topPosition = (startHour - 9) * 80; // 80px per hour, starting from 9 AM
+                              const height = (endHour - startHour) * 80;
+                              
+                              // Style classes based on event color
+                              const colorClass = eventColor === 'google-blue' ? 'border-blue-500 bg-blue-500/20' :
+                                eventColor === 'google-green' ? 'border-green-500 bg-green-500/20' :
+                                eventColor === 'google-purple' ? 'border-purple-500 bg-purple-500/20' :
+                                eventColor === 'google-red' ? 'border-red-500 bg-red-500/20' :
+                                eventColor === 'google-yellow' ? 'border-yellow-500 bg-yellow-500/20' :
+                                eventColor === 'cyan-500' ? 'border-cyan-500 bg-cyan-500/20' :
+                                eventColor === 'orange-500' ? 'border-orange-500 bg-orange-500/20' :
+                                eventColor === 'pink-500' ? 'border-pink-500 bg-pink-500/20' :
+                                eventColor === 'teal-500' ? 'border-teal-500 bg-teal-500/20' :
+                                eventColor === 'indigo-500' ? 'border-indigo-500 bg-indigo-500/20' :
+                                eventColor === 'amber-500' ? 'border-amber-500 bg-amber-500/20' :
+                                'border-blue-500 bg-blue-500/20';
+                              
+                              return (
+                                <div
+                                  key={event.id}
+                                  className={`absolute mx-1 rounded-md shadow-md border-l-4 overflow-hidden ${colorClass}`}
+                                  style={{
+                                    top: `${topPosition}px`,
+                                    height: `${Math.max(height, 20)}px`, // Minimum height
+                                    left: '4px',
+                                    right: '4px',
+                                    zIndex: 20
+                                  }}
+                                >
+                                  <div className="p-1 h-full text-xs">
+                                    <div className="font-medium text-gray-200 truncate">{event.summary}</div>
+                                    <div className="text-gray-400 text-xs">
+                                      {format(startTime, "h:mm")} - {format(endTime, "h:mm a")}
+                                    </div>
+                                    {event.attendees && event.attendees.length > 0 && (
+                                      <div className="flex items-center text-gray-400 text-xs mt-1">
+                                        <Users className="h-3 w-3 mr-1" />
+                                        <span>{event.attendees.length}</span>
+                                      </div>
+                                    )}
+                                  </div>
+                                </div>
+                              );
+                            })}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
               
-              {/* Week events list */}
-              {isLoading ? (
-                <div className="space-y-2">
-                  {Array.from({ length: 5 }).map((_, index) => (
-                    <Skeleton 
-                      key={`week-skeleton-${index}`}
-                      className="h-16 w-full rounded-md bg-gray-800 border border-gray-700" 
-                    />
-                  ))}
-                </div>
-              ) : weekEvents.length > 0 ? (
-                <div className="space-y-2">
-                  {weekEvents.map((event) => {
-                    const eventDay = new Date(event.start.dateTime);
-                    const eventColor = getEventColor(event.colorId);
-                    
-                    return (
-                      <div 
-                        key={event.id}
-                        className={`p-3 rounded-md shadow-md border-l-4 z-10 bg-gray-800 backdrop-blur-sm ${
-                          eventColor === 'google-blue' ? 'border-blue-500 text-gray-200' :
-                          eventColor === 'google-green' ? 'border-green-500 text-gray-200' :
-                          eventColor === 'google-purple' ? 'border-purple-500 text-gray-200' :
-                          eventColor === 'google-red' ? 'border-red-500 text-gray-200' :
-                          eventColor === 'google-yellow' ? 'border-yellow-500 text-gray-200' :
-                          eventColor === 'cyan-500' ? 'border-cyan-500 text-gray-200' :
-                          eventColor === 'orange-500' ? 'border-orange-500 text-gray-200' :
-                          eventColor === 'pink-500' ? 'border-pink-500 text-gray-200' :
-                          eventColor === 'teal-500' ? 'border-teal-500 text-gray-200' :
-                          eventColor === 'indigo-500' ? 'border-indigo-500 text-gray-200' :
-                          eventColor === 'amber-500' ? 'border-amber-500 text-gray-200' :
-                          'border-blue-500 text-gray-200'
-                        }`}
-                      >
-                        <div className="flex justify-between items-start">
-                          <div>
-                            <h3 className="text-sm font-medium text-gray-200">{event.summary}</h3>
-                            <div className="flex items-center mt-1 text-xs text-gray-400">
-                              <span className="font-medium text-gray-300">{format(eventDay, 'EEEE')} - </span>
-                              <span className="ml-1">
-                                {format(new Date(event.start.dateTime), "h:mm")} - {format(new Date(event.end.dateTime), "h:mm a")}
-                              </span>
-                            </div>
-                          </div>
-                          <div className="text-xs text-gray-400">
-                            {event.attendees && event.attendees.length > 0 ? (
-                              <div className="flex items-center">
-                                <Users className="h-3 w-3 mr-1" />
-                                <span>{event.attendees.length}</span>
-                              </div>
-                            ) : null}
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              ) : (
+              {/* No events message */}
+              {!isLoading && weekEvents.length === 0 && (
                 <div className="py-12 flex flex-col items-center justify-center text-center">
                   <div className="w-16 h-16 bg-blue-900 rounded-full flex items-center justify-center mb-4">
                     <CalendarIcon className="h-6 w-6 text-blue-400" />
