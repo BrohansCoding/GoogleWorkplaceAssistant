@@ -1,28 +1,51 @@
 import { Button } from "@/components/ui/button";
 import { CalendarIcon } from "lucide-react";
-import { useContext, useState } from "react";
+import { useContext, useState, useEffect } from "react";
 import { AuthContext } from "@/context/AuthContext";
-import { signInWithGoogle as firebaseSignInWithGoogle } from "@/lib/firebase";
+import { signInWithGoogle as firebaseSignInWithGoogle, checkRedirectResult } from "@/lib/firebase";
 import { useToast } from "@/hooks/use-toast";
 
 const LoginScreen = () => {
   const authContext = useContext(AuthContext);
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
+  
+  // Check for redirect result when component mounts
+  useEffect(() => {
+    const handleRedirectResult = async () => {
+      try {
+        setIsLoading(true);
+        const result = await checkRedirectResult();
+        
+        if (result && result.user && authContext) {
+          authContext.setUser(result.user);
+          
+          toast({
+            title: "Successfully signed in",
+            description: `Welcome, ${result.user.displayName || "user"}!`,
+          });
+        }
+      } catch (error) {
+        console.error("Redirect login failed:", error);
+        toast({
+          title: "Sign in failed",
+          description: "There was a problem signing in with Google.",
+          variant: "destructive",
+        });
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    
+    handleRedirectResult();
+  }, [authContext, toast]);
 
   const handleLogin = async () => {
     try {
       setIsLoading(true);
-      const { user } = await firebaseSignInWithGoogle();
-      
-      if (authContext) {
-        authContext.setUser(user);
-      }
-      
-      toast({
-        title: "Successfully signed in",
-        description: `Welcome, ${user.displayName || "user"}!`,
-      });
+      // This will redirect to Google
+      await firebaseSignInWithGoogle();
+      // The rest will happen after redirect in the useEffect
     } catch (error) {
       console.error("Login failed:", error);
       toast({
@@ -30,7 +53,6 @@ const LoginScreen = () => {
         description: "There was a problem signing in with Google.",
         variant: "destructive",
       });
-    } finally {
       setIsLoading(false);
     }
   };

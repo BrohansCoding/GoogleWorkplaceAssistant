@@ -2,6 +2,8 @@ import { initializeApp } from "firebase/app";
 import { 
   getAuth, 
   signInWithPopup, 
+  signInWithRedirect,
+  getRedirectResult,
   GoogleAuthProvider, 
   signOut as firebaseSignOut,
   onAuthStateChanged,
@@ -28,10 +30,11 @@ const googleProvider = new GoogleAuthProvider();
 // Request Google Calendar scope during sign-in
 googleProvider.addScope('https://www.googleapis.com/auth/calendar.readonly');
 
-// Sign in with Google
-export const signInWithGoogle = async () => {
+// Check for redirect result on page load
+export const checkRedirectResult = async () => {
   try {
-    const result = await signInWithPopup(auth, googleProvider);
+    const result = await getRedirectResult(auth);
+    if (!result) return null;
     
     // This gives you a Google Access Token
     const credential = GoogleAuthProvider.credentialFromResult(result);
@@ -55,6 +58,20 @@ export const signInWithGoogle = async () => {
     }
     
     return { user: result.user, token };
+  } catch (error) {
+    console.error("Error processing redirect result", error);
+    throw error;
+  }
+};
+
+// Sign in with Google
+export const signInWithGoogle = async () => {
+  try {
+    // Use redirect instead of popup
+    await signInWithRedirect(auth, googleProvider);
+    // The page will redirect to Google and then back to the app
+    // The result will be handled by checkRedirectResult on page load
+    return { success: true };
   } catch (error) {
     console.error("Error signing in with Google", error);
     throw error;
