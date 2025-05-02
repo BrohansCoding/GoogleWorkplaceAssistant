@@ -74,14 +74,51 @@ export const checkRedirectResult = async () => {
 // Sign in with Google
 export const signInWithGoogle = async () => {
   try {
-    // Use redirect instead of popup
-    await signInWithRedirect(auth, googleProvider);
-    // The page will redirect to Google and then back to the app
-    // The result will be handled by checkRedirectResult on page load
-    return { success: true };
+    console.log("Starting Google sign-in with redirect...");
+    console.log("Current URL:", window.location.href);
+    
+    // Try to use popup instead of redirect, more reliable in Replit
+    const result = await signInWithPopup(auth, googleProvider);
+    console.log("Sign in with popup successful:", result.user.displayName);
+    
+    // Get the credential
+    const credential = GoogleAuthProvider.credentialFromResult(result);
+    const token = credential?.accessToken;
+    
+    // Send token to server
+    if (token) {
+      try {
+        await fetch('/api/auth/google', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ 
+            token, 
+            user: {
+              uid: result.user.uid,
+              displayName: result.user.displayName,
+              email: result.user.email,
+              photoURL: result.user.photoURL
+            }
+          }),
+          credentials: 'include'
+        });
+      } catch (err) {
+        console.error("Error sending token to server:", err);
+      }
+    }
+    
+    return { success: true, user: result.user };
   } catch (error) {
     console.error("Error signing in with Google", error);
-    throw error;
+    // Fall back to redirect method if popup fails
+    try {
+      console.log("Popup failed, trying redirect method instead");
+      await signInWithRedirect(auth, googleProvider);
+      return { success: true };
+    } catch (redirectError) {
+      console.error("Redirect method also failed", redirectError);
+      throw redirectError;
+    }
   }
 };
 

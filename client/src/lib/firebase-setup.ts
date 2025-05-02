@@ -14,6 +14,8 @@ const firebaseConfig = {
     import.meta.env.VITE_FIREBASE_PROJECT_ID || ""
   }.appspot.com`,
   appId: import.meta.env.VITE_FIREBASE_APP_ID || "",
+  // This is critical for redirect authentication to work in a replit environment
+  redirectUri: window.location.origin,
 };
 
 // Debug Firebase configuration (without showing the entire API key)
