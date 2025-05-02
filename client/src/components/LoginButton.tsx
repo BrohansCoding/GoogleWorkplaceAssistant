@@ -1,39 +1,29 @@
-import { useState, useContext, useEffect } from "react";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { CalendarIcon } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { signInWithGoogle } from "@/lib/firebase";
-import { AuthContext } from "./AuthProvider";
 
-const SimpleLogin = () => {
-  const { isLoading } = useContext(AuthContext);
-  const [signingIn, setSigningIn] = useState(false);
-  
-  // Force reset the signing in state when component renders
-  useEffect(() => {
-    setSigningIn(false);
-  }, []);
-  
+const LoginButton = () => {
+  const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
   
   const handleLogin = async () => {
     try {
-      console.log("SimpleLogin: Starting Google sign-in process");
-      setSigningIn(true);
+      console.log("LoginButton: Starting Google sign-in process");
+      setIsLoading(true);
       await signInWithGoogle();
       // Page will redirect to Google
     } catch (error) {
-      console.error("SimpleLogin: Sign in failed", error);
+      console.error("LoginButton: Sign in failed", error);
       toast({
         title: "Sign in failed",
         description: "There was a problem signing in with Google.",
         variant: "destructive",
       });
-      setSigningIn(false);
+      setIsLoading(false);
     }
   };
-
-  const loading = isLoading || signingIn;
   
   return (
     <div className="flex flex-col items-center justify-center h-screen bg-neutral-50">
@@ -51,7 +41,7 @@ const SimpleLogin = () => {
           variant="outline" 
           className="flex items-center justify-center gap-2 px-6 py-6 bg-white border border-neutral-300 rounded-md shadow-sm hover:shadow-md transition duration-200 w-full max-w-xs mx-auto"
           onClick={handleLogin}
-          disabled={loading}
+          disabled={isLoading}
         >
           <img 
             src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" 
@@ -59,7 +49,7 @@ const SimpleLogin = () => {
             className="w-5 h-5" 
           />
           <span className="text-neutral-800 font-medium">
-            {loading ? "Signing in..." : "Sign in with Google"}
+            {isLoading ? "Signing in..." : "Sign in with Google"}
           </span>
         </Button>
         
@@ -71,4 +61,4 @@ const SimpleLogin = () => {
   );
 };
 
-export default SimpleLogin;
+export default LoginButton;

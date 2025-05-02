@@ -7,7 +7,7 @@ import NotFound from "@/pages/not-found";
 import Home from "@/pages/Home";
 import { useContext } from "react";
 import { AuthContext } from "@/components/AuthProvider";
-import SimpleLogin from "@/components/SimpleLogin";
+import LoginButton from "@/components/LoginButton";
 
 function Router() {
   // Get authentication state from context
@@ -17,7 +17,7 @@ function Router() {
   
   // If no user, show login
   if (!user) {
-    return <SimpleLogin />;
+    return <LoginButton />;
   }
   
   // If authenticated, show the app
