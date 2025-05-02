@@ -25,9 +25,11 @@ const NewLoginButton = () => {
       const credential = GoogleAuthProvider.credentialFromResult(result);
       const token = credential?.accessToken;
       
+      console.log("Retrieved access token:", token ? "Token received" : "No token");
+      
       if (token) {
         // Send token to server
-        await fetch('/api/auth/google', {
+        const response = await fetch('/api/auth/google', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ 
@@ -41,6 +43,13 @@ const NewLoginButton = () => {
           }),
           credentials: 'include'
         });
+        
+        if (!response.ok) {
+          console.error("Error sending token to server:", await response.text());
+          throw new Error("Failed to authenticate with server");
+        }
+        
+        console.log("Server authentication successful");
       }
       
       toast({

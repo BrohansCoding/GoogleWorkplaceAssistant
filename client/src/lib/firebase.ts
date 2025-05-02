@@ -88,7 +88,8 @@ export const signInWithGoogle = async () => {
     // Send token to server
     if (token) {
       try {
-        await fetch('/api/auth/google', {
+        console.log("Sending token to server after popup auth...");
+        const response = await fetch('/api/auth/google', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ 
@@ -102,6 +103,12 @@ export const signInWithGoogle = async () => {
           }),
           credentials: 'include'
         });
+        
+        if (!response.ok) {
+          console.error("Server auth failed:", await response.text());
+        } else {
+          console.log("Server auth succeeded after popup");
+        }
       } catch (err) {
         console.error("Error sending token to server:", err);
       }

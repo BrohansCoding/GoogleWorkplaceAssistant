@@ -16,8 +16,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       // Store user in session
-      req.session.user = user;
-      req.session.googleToken = token;
+      if (req.session) {
+        console.log("Storing user and token in session");
+        req.session.user = user;
+        req.session.googleToken = token;
+      } else {
+        console.log("Session object not available");
+      }
       
       // Store in DB if needed
       // await storage.createOrUpdateUser({...});
@@ -43,7 +48,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/calendar/events", async (req: Request, res: Response) => {
     try {
       const { timeMin, timeMax } = req.query;
-      const token = req.session.googleToken;
+      // Get token from session, handle possible TS errors with type assertion
+      const token = req.session?.googleToken as string | undefined;
       
       console.log("Calendar API request received:");
       console.log("- Token available:", !!token);
