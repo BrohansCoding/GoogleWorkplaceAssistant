@@ -1,21 +1,28 @@
 import { useState, useRef, useEffect, useContext, useCallback } from "react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Send, Bot, Trash } from "lucide-react";
+import { Send, Bot, Trash, X } from "lucide-react";
 import { ChatMessageType, GroqChatRequest } from "@shared/schema";
 import { CalendarContext } from "@/context/CalendarContext";
 import { useToast } from "@/hooks/use-toast";
 import { fetchCalendarEventsRange, calculateCalendarStats } from "@/lib/calendarApi";
 import { subWeeks, endOfDay } from "date-fns";
+import { MobileContext } from "@/context/MobileContext";
 
-const ChatInterface = () => {
+interface ChatInterfaceProps {
+  onClose?: () => void;
+}
+
+const ChatInterface = ({ onClose }: ChatInterfaceProps) => {
   const [messages, setMessages] = useState<ChatMessageType[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [inputValue, setInputValue] = useState("");
   
   const calendarContext = useContext(CalendarContext);
+  const mobileContext = useContext(MobileContext);
   const { toast } = useToast();
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const isMobile = mobileContext?.isMobile || false;
   
   // Get data safely from calendar context
   const events = calendarContext?.events || [];
@@ -147,27 +154,39 @@ const ChatInterface = () => {
   };
 
   return (
-    <div className="h-full flex flex-col bg-gray-800">
+    <div className="h-full flex flex-col bg-gray-800 border-l border-gray-700 shadow-lg">
       {/* Chat Header */}
       <div className="p-3 border-b border-gray-700 bg-gray-800 flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Bot className="h-5 w-5 text-blue-400" />
           <h3 className="text-sm font-medium text-gray-200">Calendar Assistant</h3>
         </div>
-        {messages.length > 0 && (
-          <Button 
-            variant="ghost"
-            size="icon"
-            className="h-7 w-7 rounded-full hover:bg-gray-700"
-            onClick={clearChat}
-          >
-            <Trash className="h-3 w-3 text-gray-400" />
-          </Button>
-        )}
+        <div className="flex items-center">
+          {messages.length > 0 && (
+            <Button 
+              variant="ghost"
+              size="icon"
+              className="h-7 w-7 rounded-full hover:bg-gray-700 mr-1"
+              onClick={clearChat}
+            >
+              <Trash className="h-3 w-3 text-gray-400" />
+            </Button>
+          )}
+          {isMobile && onClose && (
+            <Button 
+              variant="ghost"
+              size="icon"
+              className="h-7 w-7 rounded-full hover:bg-gray-700"
+              onClick={onClose}
+            >
+              <X className="h-4 w-4 text-gray-400" />
+            </Button>
+          )}
+        </div>
       </div>
       
-      {/* Chat Messages Container */}
-      <div className="flex-1 overflow-y-auto p-3 space-y-3" style={{ height: 'calc(100% - 110px)' }}>
+      {/* Chat Messages Container - Fixed height, scrollable */}
+      <div className="flex-1 overflow-y-auto p-3 space-y-3">
         {/* Welcome Message */}
         {messages.length === 0 && (
           <div className="text-center py-4">
@@ -217,7 +236,7 @@ const ChatInterface = () => {
         <div ref={messagesEndRef} />
       </div>
       
-      {/* Chat Input */}
+      {/* Chat Input - Fixed at the bottom */}
       <div className="p-3 border-t border-gray-700 bg-gray-800">
         <form onSubmit={handleSubmit}>
           <div className="relative">

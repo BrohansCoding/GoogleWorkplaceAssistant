@@ -13,33 +13,57 @@ const Home = () => {
   const { user } = useContext(AuthContext);
   const mobileContext = useContext(MobileContext);
   const [activeView, setActiveView] = useState<"calendar" | "folders" | "email">("calendar");
+  const [chatOpen, setChatOpen] = useState(true);
   
   // Get mobile state safely
   const isMobile = mobileContext?.isMobile || false;
   
-  console.log("Home: User authenticated, showing main app", user?.uid);
+  console.log("Router: rendering with user:", user ? user.uid : "not authenticated");
   
   return (
     <div className="min-h-screen flex flex-col bg-gradient-to-br from-gray-900 to-gray-800">
       <Header activeView={activeView} setActiveView={setActiveView} />
       
       <main className="flex flex-1 overflow-hidden p-4">
-        <div className="w-full h-full rounded-xl overflow-hidden shadow-lg border border-gray-700 bg-gray-800/80 backdrop-blur-sm">
-          {/* Render the active view */}
-          {activeView === "calendar" && (
-            <div className="h-full flex flex-col lg:flex-row">
-              <div className="flex-grow h-full overflow-auto border-r border-gray-700">
+        <div className="w-full h-full rounded-xl overflow-hidden shadow-lg border border-gray-700 bg-gray-800/80 backdrop-blur-sm flex">
+          {/* Main Content Area */}
+          <div className="relative flex-grow h-full overflow-hidden">
+            {/* Render the active view */}
+            {activeView === "calendar" && (
+              <div className="h-full overflow-auto">
                 <CalendarView />
               </div>
-              <div className="hidden lg:block lg:w-1/4 lg:min-w-[300px] h-full">
-                <ChatInterface />
-              </div>
+            )}
+            {activeView === "folders" && <FoldersView />}
+            {activeView === "email" && <EmailView />}
+          </div>
+
+          {/* Fixed Chat Sidebar */}
+          <div className={`
+            fixed right-0 top-0 h-full w-[320px] z-10 transition-transform duration-300 ease-in-out
+            ${!isMobile ? 'lg:relative lg:translate-x-0' : ''}
+            ${(isMobile && !chatOpen) ? 'translate-x-full' : 'translate-x-0'}
+          `}
+          style={{ 
+            height: !isMobile ? '100%' : 'calc(100% - 120px)', 
+            marginTop: !isMobile ? '0' : '72px'
+          }}>
+            <div className="h-full">
+              <ChatInterface onClose={() => setChatOpen(false)} />
             </div>
-          )}
-          {activeView === "folders" && <FoldersView />}
-          {activeView === "email" && <EmailView />}
+          </div>
         </div>
       </main>
+
+      {/* Mobile Chat Toggle Button */}
+      {isMobile && !chatOpen && (
+        <Button
+          className="fixed bottom-20 right-4 rounded-full w-12 h-12 bg-blue-600 shadow-lg z-20 flex items-center justify-center"
+          onClick={() => setChatOpen(true)}
+        >
+          <MessageSquare className="h-5 w-5" />
+        </Button>
+      )}
       
       {/* Mobile Navigation */}
       {isMobile && (
