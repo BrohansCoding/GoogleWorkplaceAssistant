@@ -92,7 +92,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
-  // Endpoint for token refreshing
+  // Endpoint for token updating (not refreshing)
   app.post("/api/auth/token", async (req: Request, res: Response) => {
     try {
       // Get tokens with clear names to avoid confusion
@@ -164,6 +164,131 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error updating token:", error);
       return res.status(500).json({ message: "Failed to update token" });
+    }
+  });
+  
+  // Endpoint for OAuth token refresh using refresh token
+  app.post("/api/auth/refresh", async (req: Request, res: Response) => {
+    try {
+      const { 
+        refreshToken,  // OAuth refresh token for Google Calendar API
+        idToken,       // Firebase ID token for authentication
+        user 
+      } = req.body;
+      
+      if (!refreshToken) {
+        return res.status(400).json({ 
+          message: "Refresh token required",
+          code: "REFRESH_TOKEN_MISSING"
+        });
+      }
+      
+      if (!user || !user.uid) {
+        return res.status(400).json({ 
+          message: "Invalid request. User data required.",
+          details: { userDataReceived: !!user }
+        });
+      }
+      
+      console.log("OAuth token refresh request received from:", user.email || user.displayName || user.uid);
+      console.log("- Refresh token present:", !!refreshToken);
+      console.log("- Refresh token length:", refreshToken?.length);
+      
+      try {
+        // Call Google's token endpoint to refresh the access token
+        // This must be done server-side as it requires client secret
+        const response = await axios.post(
+          "https://oauth2.googleapis.com/token",
+          {
+            client_id: process.env.GOOGLE_CLIENT_ID,
+            client_secret: process.env.GOOGLE_CLIENT_SECRET,
+            refresh_token: refreshToken,
+            grant_type: "refresh_token"
+          },
+          {
+            headers: {
+              "Content-Type": "application/x-www-form-urlencoded"
+            }
+          }
+        );
+        
+        // Extract the new access token from the response
+        const newAccessToken = response.data.access_token;
+        const expiresIn = response.data.expires_in || 3600;
+        
+        if (!newAccessToken) {
+          console.error("No access token in refresh response:", response.data);
+          return res.status(500).json({ 
+            message: "Failed to refresh token: no access token returned",
+            code: "REFRESH_FAILED"
+          });
+        }
+        
+        console.log("Successfully refreshed OAuth token");
+        console.log("- New access token length:", newAccessToken.length);
+        console.log("- Token expires in:", expiresIn, "seconds");
+        
+        // Store the new token in session
+        if (req.session) {
+          console.log("Updating session with new access token");
+          (req.session as any).user = user;
+          (req.session as any).googleApiToken = newAccessToken;
+          (req.session as any).tokenTimestamp = Date.now();
+          
+          // Also update legacy token name for backward compatibility
+          (req.session as any).googleToken = newAccessToken;
+          
+          // Update Firebase ID token if provided
+          if (idToken) {
+            console.log("Updating Firebase ID token");
+            (req.session as any).firebaseIdToken = idToken;
+          }
+        } else {
+          console.log("Session object not available for token update");
+        }
+        
+        // Return the new access token to the client
+        return res.status(200).json({
+          message: "Token refreshed successfully",
+          oauthToken: newAccessToken,
+          expiresIn: expiresIn,
+          tokenStatus: {
+            googleApiToken: true,
+            firebaseIdToken: !!idToken
+          }
+        });
+      } catch (refreshError) {
+        console.error("Error refreshing OAuth token:", refreshError);
+        
+        // Handle specific Google API errors
+        if (axios.isAxiosError(refreshError) && refreshError.response) {
+          console.error("Google API error details:", {
+            status: refreshError.response.status,
+            data: refreshError.response.data
+          });
+          
+          if (refreshError.response.status === 400 && 
+              refreshError.response.data.error === "invalid_grant") {
+            // The refresh token is invalid or expired
+            return res.status(401).json({
+              message: "Refresh token is invalid or expired",
+              code: "INVALID_REFRESH_TOKEN"
+            });
+          }
+        }
+        
+        return res.status(500).json({
+          message: "Failed to refresh OAuth token",
+          code: "REFRESH_ERROR",
+          error: refreshError instanceof Error ? refreshError.message : String(refreshError)
+        });
+      }
+    } catch (error) {
+      console.error("Error in refresh endpoint:", error);
+      return res.status(500).json({ 
+        message: "Error processing refresh request",
+        error: error instanceof Error ? error.message : String(error)
+      });
     }
   });
   

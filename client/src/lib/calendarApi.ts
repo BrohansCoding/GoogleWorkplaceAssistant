@@ -5,8 +5,11 @@ import { getIdToken } from 'firebase/auth';
 import { getStoredOAuthToken, getGoogleCalendarToken } from '@/lib/firebase';
 
 // Internal function for handling token refresh if needed
-const makeCalendarRequest = async (url: string): Promise<any> => {
+const makeCalendarRequest = async (url: string, retryCount = 0): Promise<any> => {
+  const MAX_RETRIES = 1; // Only retry once to avoid infinite loops
+  
   try {
+    // First attempt to make request with credentials from session
     const response = await fetch(url, {
       method: 'GET',
       credentials: 'include',
@@ -15,32 +18,31 @@ const makeCalendarRequest = async (url: string): Promise<any> => {
       },
     });
     
-    // If unauthorized and user is logged in, try to refresh the token and retry
+    // If unauthorized (401) and we have a user logged in, we need to handle token refresh
     if (response.status === 401 && auth.currentUser) {
       const responseData = await response.json();
       
-      // Only attempt refresh if token expired (not if other auth issues)
+      // Only attempt refresh if token expired or missing (not if other auth issues)
       if (responseData.code === 'TOKEN_EXPIRED' || responseData.code === 'TOKEN_MISSING') {
-        console.log('Token expired, refreshing...');
+        console.log('Token expired or missing, attempting token refresh flow...');
         
         try {
-          // Check if we have a valid OAuth token for Google Calendar
-          const storedToken = getStoredOAuthToken();
-          let tokenResponse;
+          // Try to get a fresh token using our enhanced token refresh flow
+          const freshToken = await getGoogleCalendarToken();
           
-          if (storedToken) {
-            console.log('Found stored OAuth token, sending to server...');
+          if (freshToken) {
+            console.log('Successfully obtained fresh OAuth token, sending to server...');
             
-            // Get a fresh Firebase ID token for authentication with our server 
+            // Get a fresh Firebase ID token for authentication with our server
             const idToken = await getIdToken(auth.currentUser, true);
             
-            // Send both tokens to our backend - be explicit about token types
-            tokenResponse = await fetch('/api/auth/token', {
+            // Send the fresh token to our backend
+            const tokenResponse = await fetch('/api/auth/token', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ 
-                oauthToken: storedToken.token,  // OAuth token for Google Calendar API
-                idToken,                        // Firebase ID token for our server auth
+              body: JSON.stringify({
+                oauthToken: freshToken,  // The fresh OAuth token for Google Calendar API
+                idToken,                 // Firebase ID token for our server auth
                 user: {
                   uid: auth.currentUser.uid,
                   displayName: auth.currentUser.displayName,
@@ -50,42 +52,34 @@ const makeCalendarRequest = async (url: string): Promise<any> => {
               }),
               credentials: 'include'
             });
+            
+            if (!tokenResponse?.ok) {
+              console.error('Failed to update token on server:', await tokenResponse.text());
+              throw new Error('Failed to update token on server');
+            }
+            
+            console.log('Server token updated successfully, retrying original request...');
+            
+            // Retry the original request now with the fresh token in the session
+            // Only retry once to avoid infinite loops
+            if (retryCount < MAX_RETRIES) {
+              return makeCalendarRequest(url, retryCount + 1);
+            } else {
+              throw new Error('Max retries exceeded');
+            }
           } else {
-            // No valid OAuth token available, we'll need to get a fresh one
-            console.log('No valid OAuth token available, need to re-authenticate');
-            
-            // Let's still update the Firebase ID token on the server
-            const idToken = await getIdToken(auth.currentUser, true);
-            
-            // Send token to our backend
-            tokenResponse = await fetch('/api/auth/token', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ 
-                idToken,  // Firebase ID token for our server auth
-                user: {
-                  uid: auth.currentUser.uid,
-                  displayName: auth.currentUser.displayName,
-                  email: auth.currentUser.email,
-                  photoURL: auth.currentUser.photoURL
-                }
-              }),
-              credentials: 'include'
-            });
+            // No valid token available and refresh failed
+            console.warn('Could not get a fresh OAuth token - user needs to re-authenticate');
+            throw new Error('OAUTH_EXPIRED');
           }
-          
-          if (!tokenResponse?.ok) {
-            throw new Error('Failed to refresh token on server');
-          }
-          
-          // Since we don't have a proper refresh token flow for OAuth tokens,
-          // we need the user to re-authenticate to get a fresh OAuth token
-          console.warn('OAuth token expired, user needs to re-login to access Google Calendar');
-          
-          // Throw a specific error that the UI can handle
-          throw new Error('OAUTH_EXPIRED');
         } catch (refreshError) {
-          console.error('Error refreshing token:', refreshError);
+          console.error('Error during token refresh flow:', refreshError);
+          
+          // If the error is specifically that OAuth is expired, pass it through
+          if (refreshError instanceof Error && refreshError.message === 'OAUTH_EXPIRED') {
+            throw refreshError;
+          }
+          
           throw new Error('Failed to refresh authentication');
         }
       }

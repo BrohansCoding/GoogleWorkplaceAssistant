@@ -16,28 +16,53 @@ import { auth } from "./firebase-setup";
 const OAUTH_TOKEN_STORAGE_KEY = 'google_oauth_token';
 
 // Store OAuth token with expiration
-export const storeOAuthToken = (token: string, expiresIn: number = 3600) => {
+export const storeOAuthToken = (
+  token: string, 
+  expiresIn: number = 3600, 
+  refreshToken?: string
+) => {
   const expiry = Date.now() + (expiresIn * 1000);
-  const tokenData = { token, expiry };
+  const tokenData = { 
+    token, 
+    expiry,
+    refreshToken 
+  };
   
-  // Store in sessionStorage (cleared when browser closes)
-  sessionStorage.setItem(OAUTH_TOKEN_STORAGE_KEY, JSON.stringify(tokenData));
-  console.log(`OAuth token stored. Expires in ${expiresIn} seconds.`);
+  // Store in localStorage to persist across browser sessions
+  // This is important for refresh tokens
+  localStorage.setItem(OAUTH_TOKEN_STORAGE_KEY, JSON.stringify(tokenData));
+  console.log(`OAuth token stored. Access token expires in ${expiresIn} seconds.`);
+  console.log(`Refresh token ${refreshToken ? 'stored' : 'not provided'}`);
   
   return tokenData;
 };
 
 // Get stored OAuth token if valid
-export const getStoredOAuthToken = (): { token: string, expiry: number } | null => {
-  const tokenData = sessionStorage.getItem(OAUTH_TOKEN_STORAGE_KEY);
+export const getStoredOAuthToken = (): { 
+  token: string, 
+  expiry: number, 
+  refreshToken?: string 
+} | null => {
+  const tokenData = localStorage.getItem(OAUTH_TOKEN_STORAGE_KEY);
   if (!tokenData) return null;
   
   try {
     const data = JSON.parse(tokenData);
     
-    // Return null if token is expired or will expire in next 5 minutes
+    // Return data even if access token is expired when refresh token is available
+    if (data.refreshToken) {
+      // If we have a refresh token, return the data even if token is expired
+      // The caller can use the refresh token to get a new access token
+      if (Date.now() > (data.expiry - 5 * 60 * 1000)) {
+        console.log('Access token is expired or will expire soon, but refresh token is available');
+        return data; // Return anyway since we have a refresh token
+      }
+      return data;
+    }
+    
+    // No refresh token, only return if access token is still valid
     if (Date.now() > (data.expiry - 5 * 60 * 1000)) {
-      console.log('Stored OAuth token is expired or will expire soon');
+      console.log('Stored OAuth token is expired or will expire soon and no refresh token available');
       return null;
     }
     
@@ -50,7 +75,7 @@ export const getStoredOAuthToken = (): { token: string, expiry: number } | null 
 
 // Clear OAuth token from storage
 export const clearOAuthToken = () => {
-  sessionStorage.removeItem(OAUTH_TOKEN_STORAGE_KEY);
+  localStorage.removeItem(OAUTH_TOKEN_STORAGE_KEY);
   console.log('OAuth token cleared from storage');
 };
 
@@ -275,16 +300,82 @@ export const signOut = async () => {
 export const getGoogleCalendarToken = async (): Promise<string | null> => {
   // First check if we have a valid stored token
   const storedToken = getStoredOAuthToken();
-  if (storedToken) {
-    console.log("Using stored OAuth token");
+  if (!storedToken) {
+    console.log("No OAuth token available - user needs to re-authenticate");
+    return null;
+  }
+  
+  // If the access token is valid, return it
+  if (Date.now() < (storedToken.expiry - 5 * 60 * 1000)) {
+    console.log("Using valid stored OAuth access token");
     return storedToken.token;
   }
   
-  // If no stored token but user is logged in, we could:
-  // 1. Inform user they need to re-authenticate
-  // 2. Try silent token refresh if you implement refresh tokens
+  // If we have a refresh token, use it to get a new access token
+  if (storedToken.refreshToken) {
+    console.log("Access token expired, attempting to refresh with refresh token");
+    
+    try {
+      // Get current user to include in the request
+      const currentUser = auth.currentUser;
+      if (!currentUser) {
+        console.log("No authenticated user found, cannot refresh token");
+        return null;
+      }
+      
+      // Get a fresh Firebase ID token for authentication with our server
+      const idToken = await getIdToken(currentUser, true);
+      
+      // Use our server endpoint to refresh the token
+      const response = await fetch('/api/auth/refresh', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          refreshToken: storedToken.refreshToken,
+          idToken,
+          user: {
+            uid: currentUser.uid,
+            displayName: currentUser.displayName,
+            email: currentUser.email,
+            photoURL: currentUser.photoURL
+          }
+        }),
+        credentials: 'include'
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Failed to refresh token: ${response.status}`);
+      }
+      
+      const data = await response.json();
+      
+      if (data.oauthToken) {
+        console.log("Successfully refreshed OAuth token");
+        
+        // Store the new token
+        const newTokenData = storeOAuthToken(
+          data.oauthToken, 
+          data.expiresIn || 3600, 
+          data.refreshToken || storedToken.refreshToken // Keep old refresh token if not provided
+        );
+        
+        return newTokenData.token;
+      } else {
+        throw new Error("No OAuth token returned from refresh endpoint");
+      }
+    } catch (error) {
+      console.error("Error refreshing token:", error);
+      
+      // If refresh fails and we're still logged in, we might need to re-authenticate
+      if (auth.currentUser) {
+        console.log("Token refresh failed, user may need to re-authenticate");
+      }
+      
+      return null;
+    }
+  }
   
-  console.log("No valid OAuth token available - user needs to re-authenticate");
+  console.log("No refresh token available - user needs to re-authenticate");
   return null;
 };
 
