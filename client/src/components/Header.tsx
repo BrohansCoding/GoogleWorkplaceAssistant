@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { CalendarIcon, LogOut, RefreshCw } from "lucide-react";
 import { MobileContext } from "@/context/MobileContext";
-import { AuthContext } from "@/components/AuthProvider";
+import { AuthContext } from "@/components/SimpleAuthProvider";
 import { signOut as firebaseSignOut } from "@/lib/firebase";
 import { useToast } from "@/hooks/use-toast";
 

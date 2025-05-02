@@ -4,7 +4,7 @@ import CalendarView from "@/components/CalendarView";
 import ChatInterface from "@/components/ChatInterface";
 import { Button } from "@/components/ui/button";
 import { CalendarIcon, MessageSquare } from "lucide-react";
-import { AuthContext } from "@/components/AuthProvider";
+import { AuthContext } from "@/components/SimpleAuthProvider";
 import { MobileContext } from "@/context/MobileContext";
 
 const Home = () => {
