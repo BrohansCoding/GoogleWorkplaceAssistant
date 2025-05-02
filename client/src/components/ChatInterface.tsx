@@ -198,31 +198,33 @@ const ChatInterface = () => {
         </div>
       </div>
       
-      {/* Fixed Chat Input Area */}
-      <div className="fixed bottom-0 left-0 right-0 lg:left-2/3 p-4 border-t border-border bg-card shadow-lg">
-        <form className="max-w-lg mx-auto" onSubmit={handleSubmit}>
-          <div className="relative">
-            <Input
-              type="text"
-              placeholder="Ask about your calendar or schedule..."
-              className="w-full pl-4 pr-12 py-6 bg-background border border-border rounded-full focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
-              value={inputValue}
-              onChange={(e) => setInputValue(e.target.value)}
-              disabled={isLoading}
-            />
-            <Button 
-              type="submit" 
-              className="absolute right-2 top-1/2 transform -translate-y-1/2 w-8 h-8 flex items-center justify-center bg-primary text-primary-foreground rounded-full disabled:opacity-50 disabled:bg-muted"
-              disabled={!inputValue.trim() || isLoading}
-            >
-              <Send className="h-4 w-4" />
-            </Button>
-          </div>
-          <div className="mt-2 pl-4 text-xs text-muted-foreground flex items-center gap-1">
-            <Info className="h-3 w-3" />
-            <span>Your data is processed securely and not stored permanently</span>
-          </div>
-        </form>
+      {/* Floating Chat Input Area */}
+      <div className="fixed bottom-4 right-4 w-96 z-20">
+        <div className="bg-gray-800/95 rounded-xl shadow-lg border border-gray-700 p-3">
+          <form onSubmit={handleSubmit}>
+            <div className="relative">
+              <Input
+                type="text"
+                placeholder="Ask about your calendar..."
+                className="w-full pl-4 pr-12 py-3 bg-gray-900 border border-gray-700 rounded-full focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                value={inputValue}
+                onChange={(e) => setInputValue(e.target.value)}
+                disabled={isLoading}
+              />
+              <Button 
+                type="submit" 
+                className="absolute right-2 top-1/2 transform -translate-y-1/2 w-8 h-8 flex items-center justify-center bg-blue-600 text-white rounded-full disabled:opacity-50 disabled:bg-gray-700"
+                disabled={!inputValue.trim() || isLoading}
+              >
+                <Send className="h-4 w-4" />
+              </Button>
+            </div>
+            <div className="mt-2 pl-4 text-xs text-gray-400 flex items-center gap-1">
+              <Bot className="h-3 w-3" />
+              <span>Ask me anything about your schedule</span>
+            </div>
+          </form>
+        </div>
       </div>
     </section>
   );
