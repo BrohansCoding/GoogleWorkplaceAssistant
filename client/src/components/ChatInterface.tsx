@@ -148,10 +148,10 @@ const ChatInterface = () => {
   };
 
   return (
-    <section className="w-full h-full flex flex-col rounded-r-xl overflow-hidden">
-      <div className="bg-gray-800/70 flex flex-col h-full w-full">
+    <section className="w-full h-full flex flex-col bg-gray-800">
+      <div className="flex flex-col h-full w-full">
         {/* Chat Header */}
-        <div className="sticky top-0 z-10 p-3 border-b border-gray-700 flex items-center justify-between bg-gray-800/95 backdrop-blur-sm">
+        <div className="sticky top-0 z-10 p-3 border-b border-gray-700 flex items-center justify-between bg-gray-800 backdrop-blur-sm">
           <div className="flex items-center gap-2">
             <Bot className="h-5 w-5 text-blue-400" />
             <h3 className="text-sm font-medium text-gray-200">Calendar Assistant</h3>
@@ -168,8 +168,8 @@ const ChatInterface = () => {
           )}
         </div>
         
-        {/* Chat Messages - Scrollable container with calculated height to leave room for header/input */}
-        <div className="flex-1 overflow-y-auto p-3 space-y-3 min-h-0 max-h-[calc(100vh-11rem)]">
+        {/* Chat Messages Container */}
+        <div className="flex-1 overflow-y-auto p-3 space-y-3 min-h-0">
           {/* Welcome Message */}
           {messages.length === 0 && (
             <div className="text-center py-4">
