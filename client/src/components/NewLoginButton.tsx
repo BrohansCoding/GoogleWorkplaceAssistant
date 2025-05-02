@@ -34,7 +34,7 @@ const NewLoginButton = () => {
       const result = await signInWithPopup(auth, provider);
       console.log("Sign in successful!", result.user.displayName);
       
-      // Get OAuth access token for Google Calendar API - this is crucial
+      // Get OAuth tokens for Google Calendar API - this is crucial
       const credential = GoogleAuthProvider.credentialFromResult(result);
       
       // Debug the credential details
@@ -47,6 +47,27 @@ const NewLoginButton = () => {
       // The OAuth access token is what we need for Google Calendar API
       const accessToken = credential?.accessToken;
       console.log("Access token:", accessToken ? `Present (length: ${accessToken.length})` : "Missing");
+      
+      // We now need to get the refresh token from the credential also
+      // When prompt='consent' and access_type='offline' are set, we should receive a refresh token
+      // This part requires examining credential response or making a server-side token exchange
+      
+      // Get refresh token - this is tricky with Firebase Auth since it doesn't expose refresh tokens directly
+      // But we can include logic to extract it from the credential object
+      let refreshToken = null;
+      
+      // In Firebase Auth, the refresh token might be available within auth.currentUser
+      // First attempt to get it from the credential directly
+      try {
+        // @ts-ignore - Access internal properties carefully
+        if (credential && credential._tokenResponse && credential._tokenResponse.refreshToken) {
+          // @ts-ignore - This is not in the official type definitions but often exists
+          refreshToken = credential._tokenResponse.refreshToken;
+          console.log("Refresh token found in credential:", refreshToken ? `Present (length: ${refreshToken.length})` : "Missing");
+        }
+      } catch (refreshTokenError) {
+        console.warn("Could not extract refresh token from credential:", refreshTokenError);
+      }
       
       // Also get ID token for Firebase Auth verification on our server
       let idToken = null;
@@ -67,14 +88,21 @@ const NewLoginButton = () => {
         return;
       }
       
-      // Send tokens to server - use a simple approach with a single token parameter
-      // The server is now flexible with token parameter names
+      // Store OAuth tokens in localStorage
+      if (accessToken) {
+        // Import the storage function
+        const { storeOAuthToken } = await import('@/lib/firebase');
+        storeOAuthToken(accessToken, 3600, refreshToken || undefined);
+      }
+      
+      // Send tokens to server with clear parameter names for consistency
       const response = await fetch('/api/auth/google', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
-          token: accessToken,  // OAuth access token for Google Calendar API is the main token we need
-          idToken,             // Also send Firebase ID token as a separate parameter
+          oauthToken: accessToken,  // Be explicit that this is the OAuth access token
+          refreshToken,             // Include refresh token if we have it
+          idToken,                  // Also send Firebase ID token
           user: {
             uid: result.user.uid,
             displayName: result.user.displayName,

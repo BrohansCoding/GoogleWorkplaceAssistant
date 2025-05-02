@@ -11,10 +11,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       // Get tokens with clear names
       const { 
-        oauthToken,  // OAuth token specifically for Google Calendar API
-        idToken,     // Firebase ID token for authentication
-        token,       // Legacy/generic token parameter
-        accessToken, // Legacy parameter
+        oauthToken,    // OAuth token specifically for Google Calendar API
+        refreshToken,  // OAuth refresh token for token renewal
+        idToken,       // Firebase ID token for authentication
+        token,         // Legacy/generic token parameter
+        accessToken,   // Legacy parameter
         user
       } = req.body;
       
@@ -33,6 +34,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log("Auth request received:");
       console.log("- User:", user.email || user.displayName || user.uid);
       console.log("- OAuth token for Google API:", googleApiToken ? `Present (${googleApiToken.length} chars)` : "Missing");
+      console.log("- OAuth refresh token:", refreshToken ? `Present (${refreshToken.length} chars)` : "Missing");
       console.log("- Firebase ID token:", idToken ? `Present (${idToken.length} chars)` : "Missing");
       
       // Check token types for debugging (helps identify issues)
@@ -62,6 +64,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
           console.log("Storing Google API OAuth token");
           (req.session as any).googleApiToken = googleApiToken;
           (req.session as any).tokenTimestamp = Date.now();
+          
+          // Also store refresh token if provided
+          if (refreshToken) {
+            console.log("Storing OAuth refresh token");
+            (req.session as any).refreshToken = refreshToken;
+          } else {
+            console.log("No refresh token provided - token renewal won't be possible server-side");
+          }
         } else {
           console.warn("No Google API OAuth token provided - Calendar API access will fail");
         }
@@ -83,6 +93,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         user,
         tokenStatus: {
           googleApiToken: !!googleApiToken,
+          refreshToken: !!refreshToken,
           firebaseIdToken: !!idToken
         }
       });
@@ -307,9 +318,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { timeMin, timeMax } = req.query;
       
-      // Get token from session - first try OAuth token, then fall back to legacy token name
-      const token = (req.session as any)?.googleApiToken || (req.session as any)?.googleToken as string | undefined;
+      // Get tokens from session
+      let token = (req.session as any)?.googleApiToken || (req.session as any)?.googleToken as string | undefined;
+      const refreshToken = (req.session as any)?.refreshToken as string | undefined;
       const tokenTimestamp = (req.session as any)?.tokenTimestamp as number | undefined;
+      const user = (req.session as any)?.user;
       
       // Log session information for debugging
       console.log("\n=========== CALENDAR API REQUEST ===========");
@@ -318,7 +331,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log("Session ID:", req.sessionID || "no session ID");
       
       console.log("\nCalendar API request details:");
-      console.log("- Token available:", !!token);
+      console.log("- Access token available:", !!token);
+      console.log("- Refresh token available:", !!refreshToken);
+      console.log("- User in session:", !!user);
       console.log("- Token type:", token ? typeof token : "N/A");
       console.log("- Token length:", token ? token.length : "N/A");
       console.log("- Token age (minutes):", tokenTimestamp ? Math.floor((Date.now() - tokenTimestamp) / (1000 * 60)) : "unknown");
@@ -332,14 +347,67 @@ export async function registerRoutes(app: Express): Promise<Server> {
         console.log("- WARNING:", isJwt ? "JWT tokens cannot be used for Google Calendar API!" : "Token format looks correct for OAuth");
       }
       
-      if (!token) {
-        return res.status(401).json({ message: "Authentication required", code: "TOKEN_MISSING" });
-      }
-      
-      // Check if token is likely expired (tokens typically last 60 minutes)
-      if (tokenTimestamp && (Date.now() - tokenTimestamp) > 55 * 60 * 1000) { // 55 min threshold
-        console.log("Token appears to be expired or close to expiration");
-        return res.status(401).json({ message: "Token needs refresh", code: "TOKEN_EXPIRED" });
+      // If no token or token is expired, try to refresh it if we have a refresh token
+      if (!token || (tokenTimestamp && (Date.now() - tokenTimestamp) > 55 * 60 * 1000)) {
+        console.log("Token missing or expired");
+        
+        // Check if we have a refresh token and user data to perform a refresh
+        if (refreshToken && user) {
+          console.log("Attempting to refresh the token server-side");
+          
+          try {
+            // Call Google's token endpoint to refresh the access token
+            const response = await axios.post(
+              "https://oauth2.googleapis.com/token",
+              {
+                client_id: process.env.GOOGLE_CLIENT_ID,
+                client_secret: process.env.GOOGLE_CLIENT_SECRET,
+                refresh_token: refreshToken,
+                grant_type: "refresh_token"
+              },
+              {
+                headers: {
+                  "Content-Type": "application/x-www-form-urlencoded"
+                }
+              }
+            );
+            
+            // Extract the new access token from the response
+            const newAccessToken = response.data.access_token;
+            
+            if (!newAccessToken) {
+              console.error("No access token in refresh response");
+              return res.status(401).json({ 
+                message: "Failed to refresh token automatically", 
+                code: "TOKEN_REFRESH_FAILED" 
+              });
+            }
+            
+            console.log("Successfully refreshed token automatically!");
+            console.log("- New token length:", newAccessToken.length);
+            
+            // Update the token in session
+            (req.session as any).googleApiToken = newAccessToken;
+            (req.session as any).googleToken = newAccessToken; // For backward compatibility
+            (req.session as any).tokenTimestamp = Date.now();
+            
+            // Continue with the new token
+            token = newAccessToken;
+          } catch (refreshError) {
+            console.error("Error automatically refreshing token:", refreshError);
+            return res.status(401).json({ 
+              message: "Authentication required - token refresh failed", 
+              code: "TOKEN_REFRESH_FAILED" 
+            });
+          }
+        } else {
+          // No refresh token or user data available
+          if (!token) {
+            return res.status(401).json({ message: "Authentication required", code: "TOKEN_MISSING" });
+          } else {
+            return res.status(401).json({ message: "Token expired", code: "TOKEN_EXPIRED" });
+          }
+        }
       }
       
       // Fetch events from Google Calendar API
@@ -421,7 +489,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         };
       });
       
-      console.log(`Successfully processed ${events.length} events (${events.filter(e => e.start.dateTime).length} with dateTime, ${events.length - events.filter(e => e.start.dateTime).length} all-day)`);
+      console.log(`Successfully processed ${events.length} events (${events.filter((e: any) => e.start.dateTime).length} with dateTime, ${events.length - events.filter((e: any) => e.start.dateTime).length} all-day)`);
       return res.status(200).json({ events });
     } catch (error) {
       console.error("Error fetching calendar events:", error);
