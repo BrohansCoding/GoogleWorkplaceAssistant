@@ -17,18 +17,20 @@ const NewLoginButton = () => {
       const auth = getAuth(app);
       const provider = new GoogleAuthProvider();
       
-      // Critical: Ensure we request the correct scopes for Google Calendar API
-      // These scopes determine what the access token can be used for
+      // IMPORTANT: The scope MUST be exact for Google Calendar API
+      // This is the critical part that ensures we get a token with calendar access
       provider.addScope('https://www.googleapis.com/auth/calendar.readonly');
+      provider.addScope('https://www.googleapis.com/auth/calendar.events.readonly');
       provider.addScope('profile');
       provider.addScope('email');
       
-      // Set login_hint to ensure the user gets consistent login experience
+      // Force consent screen to ensure we get all permissions
       provider.setCustomParameters({
-        prompt: 'consent', // Force consent screen to ensure we get refresh token
-        access_type: 'offline' // Get a refresh token
+        prompt: 'consent',
+        access_type: 'offline'
       });
       
+      console.log("Starting Google sign-in with correct calendar scopes...");
       const result = await signInWithPopup(auth, provider);
       console.log("Sign in successful!", result.user.displayName);
       

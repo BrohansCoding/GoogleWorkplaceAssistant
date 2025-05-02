@@ -143,7 +143,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log("- Token type:", token ? typeof token : "N/A");
       console.log("- Token length:", token ? token.length : "N/A");
       console.log("- Token age (minutes):", tokenTimestamp ? Math.floor((Date.now() - tokenTimestamp) / (1000 * 60)) : "unknown");
+      console.log("- Token prefix:", token ? `${token.substring(0, 20)}...` : "N/A");
       console.log("- Query params:", { timeMin, timeMax });
+      
+      if (token) {
+        // Check if token looks like a JWT (Firebase) or OAuth token
+        const isJwt = token.split('.').length === 3;
+        console.log("- Token appears to be:", isJwt ? "JWT (Firebase ID token)" : "OAuth access token");
+        console.log("- WARNING:", isJwt ? "JWT tokens cannot be used for Google Calendar API!" : "Token format looks correct for OAuth");
+      }
       
       if (!token) {
         return res.status(401).json({ message: "Authentication required", code: "TOKEN_MISSING" });
