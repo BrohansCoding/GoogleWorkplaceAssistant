@@ -532,7 +532,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Create detailed event summary with participants
       const eventsSummary = calendarSummary.events
         ?.map(e => {
-          const dateTimeInfo = `${new Date(e.start.dateTime).toLocaleString()} to ${new Date(e.end.dateTime).toLocaleString()}`;
+          // Parse dates from ISO string
+          const startDate = new Date(e.start.dateTime);
+          const endDate = new Date(e.end.dateTime);
+          
+          // Format the dates with respect to the timezone in the event
+          // Format: May 2, 2025 at 9:00 AM - 10:00 AM
+          const formatTime = (date: Date) => {
+            // Format to 12-hour time with AM/PM
+            return date.toLocaleString('en-US', { 
+              hour: 'numeric', 
+              minute: '2-digit', 
+              hour12: true,
+              timeZone: e.start.timeZone || 'America/Chicago'
+            });
+          };
+          
+          const dateStr = startDate.toLocaleString('en-US', { 
+            month: 'long', 
+            day: 'numeric', 
+            year: 'numeric',
+            timeZone: e.start.timeZone || 'America/Chicago'
+          });
+          
+          const dateTimeInfo = `${dateStr} at ${formatTime(startDate)} - ${formatTime(endDate)}`;
           const location = e.location ? `Location: ${e.location}` : '';
           
           // Format attendees information if available
@@ -580,6 +603,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       4. Avoid technical jargon and unnecessary complexity in your responses.
       5. When asked to modify the calendar, follow the ACTION format precisely so the system can parse your response.
       6. When the user asks about meeting participants or specific people, be detailed and helpful in your response.
+      7. Always format times in a 12-hour format with AM/PM (e.g., "9:00 AM - 10:00 AM" not "09:00 - 10:00") to match the user's calendar interface.
+      8. Use the America/Chicago timezone for all time-related information unless specifically instructed otherwise.
       
       Please provide helpful insights, suggestions, and responses based on the user's calendar data.`;
       
