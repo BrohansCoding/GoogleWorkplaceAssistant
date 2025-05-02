@@ -651,6 +651,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
       
+      // Check if it's a permission error from Google API
+      if (
+        axios.isAxiosError(error) && 
+        error.response?.data?.error?.status === 'PERMISSION_DENIED'
+      ) {
+        return res.status(403).json({ 
+          message: "Insufficient calendar permissions", 
+          error: "Request had insufficient authentication scopes.",
+          code: "PERMISSION_DENIED"
+        });
+      }
+      
       return res.status(500).json({ 
         message: "Failed to create calendar event",
         error: error instanceof Error ? error.message : String(error)
@@ -711,6 +723,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
             code: "EVENT_NOT_FOUND"
           });
         }
+      }
+      
+      // Check if it's a permission error from Google API
+      if (
+        axios.isAxiosError(error) && 
+        error.response?.data?.error?.status === 'PERMISSION_DENIED'
+      ) {
+        return res.status(403).json({ 
+          message: "Insufficient calendar permissions", 
+          error: "Request had insufficient authentication scopes.",
+          code: "PERMISSION_DENIED"
+        });
       }
       
       return res.status(500).json({ 

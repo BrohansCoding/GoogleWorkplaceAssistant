@@ -144,10 +144,21 @@ const ChatInterface = () => {
             console.error("Error adding event:", error);
             
             // Add error message to chat
+            let errorContent = message + "\n\nSorry, I couldn't add the event to your calendar. ";
+            
+            // Check for permission errors requiring re-auth
+            if (error instanceof Error && 
+                (error.message.includes("sign in again") || 
+                 error.message.includes("permission") || 
+                 error.message.includes("PERMISSION_DENIED"))) {
+              errorContent += "You need to sign out and sign in again to grant write permission to your calendar.";
+            } else {
+              errorContent += (error instanceof Error ? error.message : "An unexpected error occurred");
+            }
+            
             const errorMessage: ChatMessageType = {
               role: "assistant",
-              content: message + "\n\nSorry, I couldn't add the event to your calendar. " + 
-                      (error instanceof Error ? error.message : "An unexpected error occurred"),
+              content: errorContent
             };
             
             setMessages((prev) => prev.slice(0, prev.length - 1).concat([errorMessage]));
@@ -184,10 +195,21 @@ const ChatInterface = () => {
             console.error("Error deleting event:", error);
             
             // Add error message to chat
+            let errorContent = message + "\n\nSorry, I couldn't delete the event from your calendar. ";
+            
+            // Check for permission errors requiring re-auth
+            if (error instanceof Error && 
+                (error.message.includes("sign in again") || 
+                 error.message.includes("permission") || 
+                 error.message.includes("PERMISSION_DENIED"))) {
+              errorContent += "You need to sign out and sign in again to grant write permission to your calendar.";
+            } else {
+              errorContent += (error instanceof Error ? error.message : "An unexpected error occurred");
+            }
+            
             const errorMessage: ChatMessageType = {
               role: "assistant",
-              content: message + "\n\nSorry, I couldn't delete the event from your calendar. " + 
-                      (error instanceof Error ? error.message : "An unexpected error occurred"),
+              content: errorContent
             };
             
             setMessages((prev) => prev.slice(0, prev.length - 1).concat([errorMessage]));

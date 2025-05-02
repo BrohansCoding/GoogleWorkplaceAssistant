@@ -384,4 +384,24 @@ export const onAuthChange = (callback: (user: User | null) => void) => {
   return onAuthStateChanged(auth, callback);
 };
 
+// Force re-authentication with updated scopes
+export const forceReauthWithUpdatedScopes = async () => {
+  try {
+    // Clear all tokens first
+    clearOAuthToken();
+    
+    // Sign out
+    await signOut();
+    
+    // Force re-auth with new scopes
+    window.localStorage.setItem('FORCE_REAUTH', 'true');
+    
+    // Return success
+    return { success: true, message: 'Please sign in again to grant calendar write permission' };
+  } catch (error) {
+    console.error('Error during forced re-authentication:', error);
+    return { success: false, error };
+  }
+};
+
 export { auth };

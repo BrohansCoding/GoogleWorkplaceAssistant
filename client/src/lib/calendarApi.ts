@@ -2,7 +2,11 @@ import { CalendarEventType } from '@shared/schema';
 import { format, startOfDay, endOfDay, addDays, parseISO } from 'date-fns';
 import { auth } from '@/lib/firebase-setup';
 import { getIdToken } from 'firebase/auth';
-import { getStoredOAuthToken, getGoogleCalendarToken } from '@/lib/firebase';
+import { 
+  getStoredOAuthToken, 
+  getGoogleCalendarToken,
+  forceReauthWithUpdatedScopes
+} from '@/lib/firebase';
 
 // Internal function for handling token refresh if needed
 const makeCalendarRequest = async (url: string, retryCount = 0): Promise<any> => {
