@@ -21,6 +21,14 @@ const firebaseConfig = {
   appId: import.meta.env.VITE_FIREBASE_APP_ID || "",
 };
 
+// Debug Firebase configuration (without showing the entire API key)
+console.log("Firebase Configuration (Debug):", {
+  apiKeyPrefix: firebaseConfig.apiKey ? firebaseConfig.apiKey.substring(0, 5) + "..." : "missing",
+  authDomain: firebaseConfig.authDomain,
+  projectId: firebaseConfig.projectId,
+  appIdPrefix: firebaseConfig.appId ? firebaseConfig.appId.substring(0, 5) + "..." : "missing",
+});
+
 // Initialize Firebase
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
