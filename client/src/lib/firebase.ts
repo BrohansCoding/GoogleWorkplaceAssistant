@@ -10,14 +10,68 @@ import {
 } from "firebase/auth";
 import { auth } from "./firebase-setup";
 
-// Google Auth Provider
-const googleProvider = new GoogleAuthProvider();
-// Request Google Calendar scope during sign-in
-googleProvider.addScope('https://www.googleapis.com/auth/calendar.readonly');
-// Add additional scopes if needed for your app
-// For example, if you need access to profile info:
-googleProvider.addScope('profile');
-googleProvider.addScope('email');
+// OAUTH TOKEN STORAGE
+// Best practice: Store OAuth tokens separately from Firebase auth
+// These are different tokens with different purposes
+const OAUTH_TOKEN_STORAGE_KEY = 'google_oauth_token';
+
+// Store OAuth token with expiration
+export const storeOAuthToken = (token: string, expiresIn: number = 3600) => {
+  const expiry = Date.now() + (expiresIn * 1000);
+  const tokenData = { token, expiry };
+  
+  // Store in sessionStorage (cleared when browser closes)
+  sessionStorage.setItem(OAUTH_TOKEN_STORAGE_KEY, JSON.stringify(tokenData));
+  console.log(`OAuth token stored. Expires in ${expiresIn} seconds.`);
+  
+  return tokenData;
+};
+
+// Get stored OAuth token if valid
+export const getStoredOAuthToken = (): { token: string, expiry: number } | null => {
+  const tokenData = sessionStorage.getItem(OAUTH_TOKEN_STORAGE_KEY);
+  if (!tokenData) return null;
+  
+  try {
+    const data = JSON.parse(tokenData);
+    
+    // Return null if token is expired or will expire in next 5 minutes
+    if (Date.now() > (data.expiry - 5 * 60 * 1000)) {
+      console.log('Stored OAuth token is expired or will expire soon');
+      return null;
+    }
+    
+    return data;
+  } catch (e) {
+    console.error('Error parsing stored OAuth token:', e);
+    return null;
+  }
+};
+
+// Clear OAuth token from storage
+export const clearOAuthToken = () => {
+  sessionStorage.removeItem(OAUTH_TOKEN_STORAGE_KEY);
+  console.log('OAuth token cleared from storage');
+};
+
+// Create Google Auth Provider with proper Calendar scopes
+const createGoogleProvider = () => {
+  const provider = new GoogleAuthProvider();
+  
+  // CRITICAL: These are the EXACT scopes needed for Google Calendar API
+  provider.addScope('https://www.googleapis.com/auth/calendar.readonly');
+  provider.addScope('https://www.googleapis.com/auth/calendar.events.readonly');
+  provider.addScope('profile');
+  provider.addScope('email');
+  
+  // Force consent screen to ensure we get all permissions and refresh token
+  provider.setCustomParameters({
+    prompt: 'consent',
+    access_type: 'offline'
+  });
+  
+  return provider;
+};
 
 // Check for redirect result on page load
 export const checkRedirectResult = async () => {
@@ -32,57 +86,72 @@ export const checkRedirectResult = async () => {
       console.log("Current user:", currentUser ? "LOGGED IN" : "NOT LOGGED IN");
       
       if (currentUser) {
-        // User is already logged in, return the current user
-        return { user: currentUser, token: null };
+        // User is already logged in, check if we have a valid OAuth token
+        const storedToken = getStoredOAuthToken();
+        
+        if (storedToken) {
+          console.log("Found valid OAuth token in storage");
+          return { user: currentUser, oauthToken: storedToken.token };
+        } else {
+          console.warn("No valid OAuth token found for current user");
+          return { user: currentUser, oauthToken: null };
+        }
       }
       return null;
     }
     
-    // Try to get token directly from the credential first
+    // Try to get OAuth token from the credential
     const credential = GoogleAuthProvider.credentialFromResult(result);
-    let token = credential?.accessToken;
-    console.log("Got credential:", credential ? "YES" : "NO");
-    console.log("Got token from credential:", token ? "YES" : "NO");
+    const oauthToken = credential?.accessToken;
     
-    // If no token from credential, get a fresh ID token directly 
-    if (!token && result.user) {
-      console.log("No access token from credential, getting fresh ID token...");
-      try {
-        token = await getIdToken(result.user, true);
-        console.log("Got fresh ID token");
-      } catch (tokenError) {
-        console.error("Error getting ID token:", tokenError);
-      }
+    console.log("Got credential:", credential ? "YES" : "NO");
+    console.log("Got OAuth token from credential:", oauthToken ? "YES" : "NO");
+    
+    // Also get Firebase ID token for our backend auth
+    let idToken = null;
+    try {
+      idToken = await getIdToken(result.user, true);
+      console.log("Got Firebase ID token");
+    } catch (tokenError) {
+      console.error("Error getting Firebase ID token:", tokenError);
     }
     
-    // Pass token to server to store or use for API calls
-    if (token) {
-      console.log("Sending token to server...");
-      try {
-        const response = await fetch('/api/auth/google', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({ token, user: {
+    // Store OAuth token if available (crucial for Google Calendar API)
+    if (oauthToken) {
+      storeOAuthToken(oauthToken);
+    } else {
+      console.error("No OAuth token received! Calendar API access may fail.");
+    }
+    
+    // Pass both tokens to server
+    try {
+      console.log("Sending tokens to server...");
+      const response = await fetch('/api/auth/google', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ 
+          // Send both tokens separately with clear names
+          oauthToken,    // For Google Calendar API
+          idToken,       // For Firebase authentication
+          user: {
             uid: result.user.uid,
             displayName: result.user.displayName,
             email: result.user.email,
             photoURL: result.user.photoURL
-          }}),
-          credentials: 'include'
-        });
-        console.log("Server response:", response.status);
-      } catch (serverError) {
-        console.error("Error sending token to server:", serverError);
-        // Continue anyway - we'll handle auth client-side
-      }
-    } else {
-      console.warn("No token available after redirect auth, some features may not work");
+          }
+        }),
+        credentials: 'include'
+      });
+      console.log("Server response:", response.status);
+    } catch (serverError) {
+      console.error("Error sending tokens to server:", serverError);
+      // Continue anyway - we'll handle auth client-side if needed
     }
     
     console.log("Authentication successful, returning user");
-    return { user: result.user, token };
+    return { user: result.user, oauthToken };
   } catch (error) {
     console.error("Error processing redirect result", error);
     throw error;
@@ -90,90 +159,133 @@ export const checkRedirectResult = async () => {
 };
 
 // Sign in with Google
-export const signInWithGoogle = async (): Promise<{ success: boolean; user?: User }> => {
+export const signInWithGoogle = async () => {
   try {
-    console.log("Starting Google sign-in with redirect...");
-    console.log("Current URL:", window.location.href);
+    console.log("Starting Google sign-in with correct Calendar API scopes...");
     
-    // Try to use popup instead of redirect, more reliable in Replit
+    // Create provider with proper scopes
+    const googleProvider = createGoogleProvider();
+    
+    // Try to use popup which is more reliable in many environments
     const result = await signInWithPopup(auth, googleProvider);
     console.log("Sign in with popup successful:", result.user.displayName);
     
-    // Try to get token directly from the credential first
+    // Get OAuth token for Google Calendar API
     const credential = GoogleAuthProvider.credentialFromResult(result);
-    let token = credential?.accessToken;
+    const oauthToken = credential?.accessToken;
     
-    // If no token from credential, get a fresh ID token directly 
-    if (!token && result.user) {
-      console.log("No access token from credential, getting fresh ID token...");
-      try {
-        token = await getIdToken(result.user, true);
-        console.log("Got fresh ID token");
-      } catch (tokenError) {
-        console.error("Error getting ID token:", tokenError);
-      }
+    if (!oauthToken) {
+      console.error("Failed to get OAuth token from Google sign-in!");
+      return { success: false, error: "No OAuth token received" };
     }
     
-    // Send token to server
-    if (token) {
-      try {
-        console.log("Sending token to server after popup auth...");
-        const response = await fetch('/api/auth/google', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ 
-            token, 
-            user: {
-              uid: result.user.uid,
-              displayName: result.user.displayName,
-              email: result.user.email,
-              photoURL: result.user.photoURL
-            }
-          }),
-          credentials: 'include'
-        });
-        
-        if (!response.ok) {
-          console.error("Server auth failed:", await response.text());
-        } else {
-          console.log("Server auth succeeded after popup");
-        }
-      } catch (err) {
-        console.error("Error sending token to server:", err);
-      }
-    } else {
-      console.warn("No token available after sign-in, some features may not work");
+    console.log("OAuth token received:", {
+      exists: !!oauthToken,
+      length: oauthToken?.length
+    });
+    
+    // Store OAuth token
+    storeOAuthToken(oauthToken);
+    
+    // Get Firebase ID token for our backend
+    let idToken = null;
+    try {
+      idToken = await getIdToken(result.user, true);
+      console.log("Firebase ID token received");
+    } catch (err) {
+      console.error("Error getting Firebase ID token:", err);
     }
     
-    return { success: true, user: result.user };
+    // Send tokens to server
+    try {
+      console.log("Sending tokens to server...");
+      const response = await fetch('/api/auth/google', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          // Send both tokens with clear names
+          oauthToken,   // For Google Calendar API
+          idToken,      // For Firebase auth
+          user: {
+            uid: result.user.uid,
+            displayName: result.user.displayName,
+            email: result.user.email,
+            photoURL: result.user.photoURL
+          }
+        }),
+        credentials: 'include'
+      });
+      
+      if (!response.ok) {
+        console.error("Server auth failed:", await response.text());
+      } else {
+        console.log("Server auth succeeded");
+      }
+    } catch (err) {
+      console.error("Error sending tokens to server:", err);
+    }
+    
+    return { 
+      success: true, 
+      user: result.user,
+      oauthToken,
+      idToken 
+    };
   } catch (error) {
-    console.error("Error signing in with Google", error);
+    console.error("Error signing in with Google popup:", error);
+    
     // Fall back to redirect method if popup fails
     try {
       console.log("Popup failed, trying redirect method instead");
+      const googleProvider = createGoogleProvider();
       await signInWithRedirect(auth, googleProvider);
       return { success: true };
     } catch (redirectError) {
-      console.error("Redirect method also failed", redirectError);
-      throw redirectError;
+      console.error("Redirect method also failed:", redirectError);
+      return { success: false, error: redirectError };
     }
   }
 };
 
-// Sign out
+// Sign out - properly clears all tokens
 export const signOut = async () => {
   try {
+    // Clear OAuth token from storage
+    clearOAuthToken();
+    
+    // Sign out from Firebase
     await firebaseSignOut(auth);
+    console.log("Firebase sign out complete");
+    
     // Clear session on server
     await fetch('/api/auth/signout', {
       method: 'POST',
       credentials: 'include'
     });
-    return true;
+    
+    return { success: true };
   } catch (error) {
-    console.error("Error signing out", error);
-    throw error;
+    console.error("Error signing out:", error);
+    return { success: false, error };
   }
+};
+
+// Get Google Calendar OAuth token (for API requests)
+// This function returns the OAuth token, refreshing if needed
+export const getGoogleCalendarToken = async (): Promise<string | null> => {
+  // First check if we have a valid stored token
+  const storedToken = getStoredOAuthToken();
+  if (storedToken) {
+    console.log("Using stored OAuth token");
+    return storedToken.token;
+  }
+  
+  // If no stored token but user is logged in, we could:
+  // 1. Inform user they need to re-authenticate
+  // 2. Try silent token refresh if you implement refresh tokens
+  
+  console.log("No valid OAuth token available - user needs to re-authenticate");
+  return null;
 };
 
 // Listen to auth state changes

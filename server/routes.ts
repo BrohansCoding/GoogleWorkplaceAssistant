@@ -9,52 +9,83 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Auth routes
   app.post("/api/auth/google", async (req: Request, res: Response) => {
     try {
-      // Accept token, accessToken, or idToken for maximum flexibility
-      const { token, accessToken, idToken, user } = req.body;
+      // Get tokens with clear names
+      const { 
+        oauthToken,  // OAuth token specifically for Google Calendar API
+        idToken,     // Firebase ID token for authentication
+        token,       // Legacy/generic token parameter
+        accessToken, // Legacy parameter
+        user
+      } = req.body;
       
-      // Get the main token (prioritize standard token parameter)
-      const mainToken = token || accessToken || idToken;
+      // Determine which token to use for Google Calendar
+      // Prioritize oauthToken, then fall back to less specific names
+      const googleApiToken = oauthToken || accessToken || token;
       
-      if (!mainToken || !user || !user.uid) {
+      // Basic validation
+      if (!user || !user.uid) {
         return res.status(400).json({ 
-          message: "Invalid request. Token and user data required.",
-          details: {
-            tokenReceived: !!(token || accessToken || idToken),
-            userDataReceived: !!user
-          }
+          message: "Invalid request. User data required.",
+          details: { userDataReceived: !!user }
         });
       }
       
       console.log("Auth request received:");
-      console.log("- Main token present:", !!mainToken);
-      console.log("- Main token length:", mainToken.length);
-      console.log("- Separate ID token present:", !!idToken && idToken !== mainToken);
+      console.log("- User:", user.email || user.displayName || user.uid);
+      console.log("- OAuth token for Google API:", googleApiToken ? `Present (${googleApiToken.length} chars)` : "Missing");
+      console.log("- Firebase ID token:", idToken ? `Present (${idToken.length} chars)` : "Missing");
+      
+      // Check token types for debugging (helps identify issues)
+      if (googleApiToken) {
+        // OAuth tokens are usually much shorter than JWT tokens
+        const isLikelyOAuth = googleApiToken.length < 500 && !googleApiToken.includes('.');
+        const isLikelyJWT = googleApiToken.split('.').length === 3;
+        
+        console.log("Google API token appears to be:", 
+          isLikelyOAuth ? "OAuth token (correct for Calendar API)" : 
+          isLikelyJWT ? "JWT token (INCORRECT for Calendar API)" : 
+          "Unknown format"
+        );
+        
+        if (isLikelyJWT) {
+          console.warn("WARNING: Using a JWT token for Google Calendar API will fail!");
+        }
+      }
       
       // Store user and tokens in session
       if (req.session) {
         console.log("Storing user and tokens in session");
         (req.session as any).user = user;
         
-        // Store the main token for Google Calendar API
-        (req.session as any).googleToken = mainToken;
-        (req.session as any).tokenTimestamp = Date.now();
+        // Store tokens with explicit names
+        if (googleApiToken) {
+          console.log("Storing Google API OAuth token");
+          (req.session as any).googleApiToken = googleApiToken;
+          (req.session as any).tokenTimestamp = Date.now();
+        } else {
+          console.warn("No Google API OAuth token provided - Calendar API access will fail");
+        }
         
-        // Also store the Firebase ID token if explicitly provided and different
-        if (idToken && idToken !== mainToken) {
-          console.log("Storing separate Firebase ID token");
+        // Also store the Firebase ID token if provided
+        if (idToken) {
+          console.log("Storing Firebase ID token");
           (req.session as any).firebaseIdToken = idToken;
         }
         
-        // Verify storage
         console.log("Session data stored successfully");
       } else {
         console.log("Session object not available");
+        return res.status(500).json({ message: "Session storage unavailable" });
       }
       
-      // Store in DB if needed
-      // await storage.createOrUpdateUser({...});
-      
-      return res.status(200).json({ message: "Authentication successful", user });
+      return res.status(200).json({ 
+        message: "Authentication successful", 
+        user,
+        tokenStatus: {
+          googleApiToken: !!googleApiToken,
+          firebaseIdToken: !!idToken
+        }
+      });
     } catch (error) {
       console.error("Error authenticating with Google:", error);
       return res.status(500).json({ message: "Authentication failed" });
@@ -64,45 +95,68 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Endpoint for token refreshing
   app.post("/api/auth/token", async (req: Request, res: Response) => {
     try {
-      const { token, accessToken, idToken, user } = req.body;
+      // Get tokens with clear names to avoid confusion
+      const { 
+        oauthToken,   // OAuth token for Google Calendar API
+        idToken,      // Firebase ID token 
+        token,        // Generic token (legacy support)
+        accessToken,  // Legacy support
+        user 
+      } = req.body;
       
-      // Accept any token parameter (for backwards compatibility)
-      // This makes our system more resilient to changes
-      const finalToken = accessToken || token || idToken;
+      // Determine which token to use for Google Calendar API
+      // Prioritize explicitly named oauthToken
+      const googleApiToken = oauthToken || accessToken || token;
       
       if (!user || !user.uid) {
         return res.status(400).json({ 
           message: "Invalid request. User data required.",
-          details: {
-            userDataReceived: !!user
-          }
+          details: { userDataReceived: !!user }
         });
       }
       
-      console.log("Token refresh request received:");
-      console.log("- Token present:", !!finalToken);
-      console.log("- Token length:", finalToken?.length);
+      console.log("Token refresh request received from:", user.email || user.displayName || user.uid);
+      console.log("- OAuth token present:", !!googleApiToken);
+      console.log("- OAuth token length:", googleApiToken?.length);
+      console.log("- ID token present:", !!idToken);
       
       if (req.session) {
         // Update user in session
         console.log("Updating user data in session");
         (req.session as any).user = user;
         
-        // Update Google token if provided
-        if (finalToken) {
-          console.log("Updating Google token in session");
-          (req.session as any).googleToken = finalToken;
+        // Update Google API token if provided
+        if (googleApiToken) {
+          console.log("Updating Google API OAuth token");
+          (req.session as any).googleApiToken = googleApiToken;
           (req.session as any).tokenTimestamp = Date.now();
+          
+          // Also update legacy token name for backward compatibility
+          (req.session as any).googleToken = googleApiToken;
         }
         
-        // Update Firebase ID token if explicitly provided
-        if (idToken && idToken !== finalToken) {
-          console.log("Updating Firebase ID token in session");
+        // Update Firebase ID token if provided
+        if (idToken) {
+          console.log("Updating Firebase ID token");
           (req.session as any).firebaseIdToken = idToken;
         }
         
+        // Check token types to warn about potential issues
+        if (googleApiToken) {
+          const isLikelyJWT = googleApiToken.split('.').length === 3;
+          if (isLikelyJWT) {
+            console.warn("WARNING: Received a JWT token for Google Calendar API. This will likely fail!");
+          }
+        }
+        
         console.log("Session updated successfully");
-        return res.status(200).json({ message: "Token updated successfully" });
+        return res.status(200).json({ 
+          message: "Token updated successfully",
+          tokenStatus: {
+            googleApiToken: !!googleApiToken,
+            firebaseIdToken: !!idToken
+          }
+        });
       } else {
         console.log("Session object not available for token update");
         return res.status(500).json({ message: "Session not available" });
@@ -128,8 +182,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { timeMin, timeMax } = req.query;
       
-      // Get token from session, handle possible TS errors with type assertion
-      const token = (req.session as any)?.googleToken as string | undefined;
+      // Get token from session - first try OAuth token, then fall back to legacy token name
+      const token = (req.session as any)?.googleApiToken || (req.session as any)?.googleToken as string | undefined;
       const tokenTimestamp = (req.session as any)?.tokenTimestamp as number | undefined;
       
       // Log session information for debugging
