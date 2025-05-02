@@ -36,43 +36,43 @@ const SimpleLogin = () => {
   const loading = isLoading || signingIn;
   
   return (
-    <div className="flex flex-col items-center justify-center h-screen bg-gradient-to-br from-blue-50 to-indigo-50">
-      <div className="text-center p-8 max-w-md backdrop-blur-sm bg-white/70 rounded-2xl shadow-lg border border-white/40">
-        <h1 className="text-4xl font-bold mb-2 text-indigo-900">G Assistant</h1>
-        <p className="text-indigo-700 mb-6">
+    <div className="flex flex-col items-center justify-center h-screen bg-gradient-to-br from-gray-900 to-gray-800">
+      <div className="text-center p-8 max-w-md backdrop-blur-sm bg-gray-800/70 rounded-2xl shadow-lg border border-gray-700">
+        <h1 className="text-4xl font-bold mb-2 text-white">G Assistant</h1>
+        <p className="text-gray-300 mb-6">
           Your intelligent assistant for productivity and organization
         </p>
         
         <div className="flex flex-wrap justify-center gap-6 mb-8">
           <div className="text-center p-4">
-            <div className="w-16 h-16 mx-auto mb-2 rounded-full bg-blue-100 flex items-center justify-center">
-              <CalendarIcon className="h-8 w-8 text-blue-600" />
+            <div className="w-16 h-16 mx-auto mb-2 rounded-full bg-blue-900 flex items-center justify-center">
+              <CalendarIcon className="h-8 w-8 text-blue-400" />
             </div>
-            <p className="text-sm font-medium text-gray-800">Calendar</p>
+            <p className="text-sm font-medium text-gray-300">Calendar</p>
           </div>
           
           <div className="text-center p-4">
-            <div className="w-16 h-16 mx-auto mb-2 rounded-full bg-emerald-100 flex items-center justify-center">
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <div className="w-16 h-16 mx-auto mb-2 rounded-full bg-emerald-900 flex items-center justify-center">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
               </svg>
             </div>
-            <p className="text-sm font-medium text-gray-800">Folders</p>
+            <p className="text-sm font-medium text-gray-300">Folders</p>
           </div>
           
           <div className="text-center p-4">
-            <div className="w-16 h-16 mx-auto mb-2 rounded-full bg-amber-100 flex items-center justify-center">
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-amber-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <div className="w-16 h-16 mx-auto mb-2 rounded-full bg-amber-900 flex items-center justify-center">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
               </svg>
             </div>
-            <p className="text-sm font-medium text-gray-800">Email</p>
+            <p className="text-sm font-medium text-gray-300">Email</p>
           </div>
         </div>
         
         <Button
           variant="outline" 
-          className="flex items-center justify-center gap-2 px-6 py-6 bg-white/80 border border-indigo-100 rounded-xl shadow-sm hover:shadow-md transition duration-200 w-full max-w-xs mx-auto hover:bg-indigo-50"
+          className="flex items-center justify-center gap-2 px-6 py-6 bg-gray-700 border border-gray-600 rounded-xl shadow-sm hover:shadow-md transition duration-200 w-full max-w-xs mx-auto hover:bg-gray-600 text-white"
           onClick={handleLogin}
           disabled={loading}
         >
@@ -81,12 +81,12 @@ const SimpleLogin = () => {
             alt="Google logo" 
             className="w-5 h-5" 
           />
-          <span className="text-indigo-800 font-medium">
+          <span className="text-gray-100 font-medium">
             {loading ? "Signing in..." : "Sign in with Google"}
           </span>
         </Button>
         
-        <p className="mt-6 text-sm text-indigo-600">
+        <p className="mt-6 text-sm text-gray-400">
           We'll help you manage your Calendar, Folders, and Email more efficiently
         </p>
       </div>

@@ -12,7 +12,7 @@ import { MobileContext } from "@/context/MobileContext";
 const Home = () => {
   const { user } = useContext(AuthContext);
   const mobileContext = useContext(MobileContext);
-  const [activeView, setActiveView] = useState<"calendar" | "chat" | "folders" | "email">("calendar");
+  const [activeView, setActiveView] = useState<"calendar" | "folders" | "email">("calendar");
   
   // Get mobile state safely
   const isMobile = mobileContext?.isMobile || false;
@@ -20,29 +20,37 @@ const Home = () => {
   console.log("Home: User authenticated, showing main app", user?.uid);
   
   return (
-    <div className="min-h-screen flex flex-col bg-gradient-to-br from-blue-50 to-indigo-50">
+    <div className="min-h-screen flex flex-col bg-gradient-to-br from-gray-900 to-gray-800">
       <Header activeView={activeView} setActiveView={setActiveView} />
       
       <main className="flex flex-1 overflow-hidden p-4">
-        <div className="w-full h-full rounded-xl overflow-hidden shadow-lg border border-white/40 bg-white/30 backdrop-blur-sm">
+        <div className="w-full h-full rounded-xl overflow-hidden shadow-lg border border-gray-700 bg-gray-800/80 backdrop-blur-sm">
           {/* Render the active view */}
-          {activeView === "calendar" && <CalendarView />}
+          {activeView === "calendar" && (
+            <div className="grid grid-cols-1 lg:grid-cols-3 h-full">
+              <div className="lg:col-span-2 h-full border-r border-gray-700">
+                <CalendarView />
+              </div>
+              <div className="h-full">
+                <ChatInterface />
+              </div>
+            </div>
+          )}
           {activeView === "folders" && <FoldersView />}
           {activeView === "email" && <EmailView />}
-          {activeView === "chat" && <ChatInterface />}
         </div>
       </main>
       
       {/* Mobile Navigation */}
       {isMobile && (
-        <div className="border-t border-indigo-100 bg-white/80 backdrop-blur-md">
+        <div className="border-t border-gray-700 bg-gray-800/90 backdrop-blur-md">
           <div className="flex justify-around">
             <Button
               variant="ghost"
               className={`flex flex-col items-center py-2 px-4 ${
                 activeView === "calendar" 
-                  ? "text-indigo-700 border-t-2 border-indigo-500 -mt-[2px]" 
-                  : "text-gray-500"
+                  ? "text-blue-400 border-t-2 border-blue-500 -mt-[2px]" 
+                  : "text-gray-400"
               }`}
               onClick={() => setActiveView("calendar")}
             >
@@ -54,8 +62,8 @@ const Home = () => {
               variant="ghost"
               className={`flex flex-col items-center py-2 px-4 ${
                 activeView === "folders" 
-                  ? "text-indigo-700 border-t-2 border-indigo-500 -mt-[2px]" 
-                  : "text-gray-500"
+                  ? "text-blue-400 border-t-2 border-blue-500 -mt-[2px]" 
+                  : "text-gray-400"
               }`}
               onClick={() => setActiveView("folders")}
             >
@@ -67,26 +75,13 @@ const Home = () => {
               variant="ghost"
               className={`flex flex-col items-center py-2 px-4 ${
                 activeView === "email" 
-                  ? "text-indigo-700 border-t-2 border-indigo-500 -mt-[2px]" 
-                  : "text-gray-500"
+                  ? "text-blue-400 border-t-2 border-blue-500 -mt-[2px]" 
+                  : "text-gray-400"
               }`}
               onClick={() => setActiveView("email")}
             >
               <Mail className="h-5 w-5" />
               <span className="text-xs mt-1">Email</span>
-            </Button>
-            
-            <Button
-              variant="ghost"
-              className={`flex flex-col items-center py-2 px-4 ${
-                activeView === "chat" 
-                  ? "text-indigo-700 border-t-2 border-indigo-500 -mt-[2px]" 
-                  : "text-gray-500"
-              }`}
-              onClick={() => setActiveView("chat")}
-            >
-              <MessageSquare className="h-5 w-5" />
-              <span className="text-xs mt-1">Chat</span>
             </Button>
           </div>
         </div>
