@@ -5,8 +5,9 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import NotFound from "@/pages/not-found";
 import Home from "@/pages/Home";
-import { useEffect } from "react";
-import { onAuthChange } from "./lib/firebase";
+import { useEffect, useContext } from "react";
+import { auth, checkRedirectResult } from "./lib/firebase";
+import { AuthContext } from "@/context/AuthContext";
 
 function Router() {
   return (
@@ -18,15 +19,32 @@ function Router() {
 }
 
 function App() {
+  const authContext = useContext(AuthContext);
+  
   useEffect(() => {
-    // Initialize auth listener
-    const unsubscribe = onAuthChange((user) => {
-      console.log("Auth state changed:", user ? "user logged in" : "user logged out");
-    });
+    console.log("App: Checking for redirect result on mount");
     
-    // Clean up subscription
-    return () => unsubscribe();
-  }, []);
+    // Check for redirect result when component mounts
+    const handleRedirectResult = async () => {
+      try {
+        const result = await checkRedirectResult();
+        if (result && result.user && authContext) {
+          console.log("App: Redirect result received, setting user", result.user.uid);
+          authContext.setUser(result.user);
+        }
+      } catch (error) {
+        console.error("App: Error handling redirect result", error);
+      }
+    };
+    
+    // If already logged in, no need to check redirect
+    if (!auth.currentUser) {
+      handleRedirectResult();
+    } else if (authContext && auth.currentUser) {
+      console.log("App: User already logged in, syncing with context");
+      authContext.setUser(auth.currentUser);
+    }
+  }, [authContext]);
 
   return (
     <QueryClientProvider client={queryClient}>

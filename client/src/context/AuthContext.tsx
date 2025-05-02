@@ -18,8 +18,10 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    console.log("AuthProvider: Setting up auth state listener");
     // Subscribe to auth state changes
     const unsubscribe = onAuthChange((authUser) => {
+      console.log("AuthProvider: Auth state changed", authUser ? "User logged in" : "User logged out");
       setUser(authUser);
       setLoading(false);
     });
@@ -27,6 +29,12 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     // Clean up subscription
     return () => unsubscribe();
   }, []);
+  
+  // This will be called from LoginScreen after successful redirect
+  const handleSetUser = (newUser: User | null) => {
+    console.log("AuthProvider: setUser called explicitly", newUser ? "with user" : "with null");
+    setUser(newUser);
+  };
 
   if (loading) {
     return (
@@ -37,7 +45,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   }
 
   return (
-    <AuthContext.Provider value={{ user, setUser }}>
+    <AuthContext.Provider value={{ user, setUser: handleSetUser }}>
       {children}
     </AuthContext.Provider>
   );

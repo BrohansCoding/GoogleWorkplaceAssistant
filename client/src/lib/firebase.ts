@@ -41,30 +41,53 @@ googleProvider.addScope('https://www.googleapis.com/auth/calendar.readonly');
 // Check for redirect result on page load
 export const checkRedirectResult = async () => {
   try {
+    console.log("Checking for redirect result...");
     const result = await getRedirectResult(auth);
-    if (!result) return null;
+    console.log("Redirect result:", result ? "SUCCESS" : "NO RESULT");
+    
+    if (!result) {
+      // Check if user is already logged in
+      const currentUser = auth.currentUser;
+      console.log("Current user:", currentUser ? "LOGGED IN" : "NOT LOGGED IN");
+      
+      if (currentUser) {
+        // User is already logged in, return the current user
+        return { user: currentUser, token: null };
+      }
+      return null;
+    }
     
     // This gives you a Google Access Token
     const credential = GoogleAuthProvider.credentialFromResult(result);
     const token = credential?.accessToken;
+    console.log("Got credential:", credential ? "YES" : "NO");
+    console.log("Got token:", token ? "YES" : "NO");
     
     // Pass token to server to store or use for API calls
     if (token) {
-      await fetch('/api/auth/google', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ token, user: {
-          uid: result.user.uid,
-          displayName: result.user.displayName,
-          email: result.user.email,
-          photoURL: result.user.photoURL
-        }}),
-        credentials: 'include'
-      });
+      console.log("Sending token to server...");
+      try {
+        const response = await fetch('/api/auth/google', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ token, user: {
+            uid: result.user.uid,
+            displayName: result.user.displayName,
+            email: result.user.email,
+            photoURL: result.user.photoURL
+          }}),
+          credentials: 'include'
+        });
+        console.log("Server response:", response.status);
+      } catch (serverError) {
+        console.error("Error sending token to server:", serverError);
+        // Continue anyway - we'll handle auth client-side
+      }
     }
     
+    console.log("Authentication successful, returning user");
     return { user: result.user, token };
   } catch (error) {
     console.error("Error processing redirect result", error);
