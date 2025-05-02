@@ -1,15 +1,14 @@
-import { useState, useEffect, useContext } from "react";
-import LoginScreen from "@/components/LoginScreen";
+import { useState, useContext } from "react";
 import Header from "@/components/Header";
 import CalendarView from "@/components/CalendarView";
 import ChatInterface from "@/components/ChatInterface";
 import { Button } from "@/components/ui/button";
 import { CalendarIcon, MessageSquare } from "lucide-react";
-import { AuthContext } from "@/context/AuthContext";
+import { AuthContext } from "@/components/AuthProvider";
 import { MobileContext } from "@/context/MobileContext";
 
 const Home = () => {
-  const authContext = useContext(AuthContext);
+  const { user } = useContext(AuthContext);
   const mobileContext = useContext(MobileContext);
   const [activeView, setActiveView] = useState<"calendar" | "chat">("calendar");
   
@@ -20,13 +19,7 @@ const Home = () => {
   const showCalendar = !isMobile || activeView === "calendar";
   const showChat = !isMobile || activeView === "chat";
   
-  // If user is not authenticated, show login screen
-  if (!authContext || !authContext.user) {
-    console.log("Home: No authenticated user, showing login screen");
-    return <LoginScreen />;
-  }
-  
-  console.log("Home: User authenticated, showing main app", authContext.user.uid);
+  console.log("Home: User authenticated, showing main app", user?.uid);
   
   return (
     <div className="h-screen flex flex-col">

@@ -5,11 +5,29 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import NotFound from "@/pages/not-found";
 import Home from "@/pages/Home";
-import { useEffect, useContext } from "react";
-import { auth, checkRedirectResult } from "./lib/firebase";
-import { AuthContext } from "@/context/AuthContext";
+import { useContext } from "react";
+import { AuthContext } from "@/components/AuthProvider";
+import SimpleLogin from "@/components/SimpleLogin";
 
 function Router() {
+  // Get authentication state from context
+  const { user, isLoading } = useContext(AuthContext);
+  
+  // If loading, show a spinner
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-screen bg-neutral-50">
+        <div className="animate-spin rounded-full h-8 w-8 border-2 border-neutral-300 border-t-google-blue" />
+      </div>
+    );
+  }
+  
+  // If no user, show login
+  if (!user) {
+    return <SimpleLogin />;
+  }
+  
+  // If authenticated, show the app
   return (
     <Switch>
       <Route path="/" component={Home} />
@@ -19,33 +37,6 @@ function Router() {
 }
 
 function App() {
-  const authContext = useContext(AuthContext);
-  
-  useEffect(() => {
-    console.log("App: Checking for redirect result on mount");
-    
-    // Check for redirect result when component mounts
-    const handleRedirectResult = async () => {
-      try {
-        const result = await checkRedirectResult();
-        if (result && result.user && authContext) {
-          console.log("App: Redirect result received, setting user", result.user.uid);
-          authContext.setUser(result.user);
-        }
-      } catch (error) {
-        console.error("App: Error handling redirect result", error);
-      }
-    };
-    
-    // If already logged in, no need to check redirect
-    if (!auth.currentUser) {
-      handleRedirectResult();
-    } else if (authContext && auth.currentUser) {
-      console.log("App: User already logged in, syncing with context");
-      authContext.setUser(auth.currentUser);
-    }
-  }, [authContext]);
-
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>

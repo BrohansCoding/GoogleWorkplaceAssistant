@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { CalendarIcon, LogOut } from "lucide-react";
 import { MobileContext } from "@/context/MobileContext";
-import { AuthContext } from "@/context/AuthContext";
+import { AuthContext } from "@/components/AuthProvider";
 import { signOut as firebaseSignOut } from "@/lib/firebase";
 
 interface HeaderProps {
@@ -19,13 +19,9 @@ const Header = ({ activeView, setActiveView }: HeaderProps) => {
 
   const handleLogout = async () => {
     try {
+      console.log("Header: Sign out requested");
       // Sign out of Firebase
       await firebaseSignOut();
-      
-      // Clear user in context
-      if (authContext) {
-        authContext.setUser(null);
-      }
       
       // Clear session on server
       await fetch('/api/auth/signout', {
