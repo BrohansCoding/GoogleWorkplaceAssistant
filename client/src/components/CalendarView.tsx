@@ -85,19 +85,19 @@ const CalendarView = () => {
   };
 
   return (
-    <section className="w-full h-full bg-background overflow-y-auto border-r border-border">
+    <section className="w-full h-full overflow-y-auto">
       <div className="p-4">
         {/* Calendar Header */}
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-2">
-            <h2 className="text-xl font-medium text-foreground">My Calendar</h2>
+            <h2 className="text-xl font-medium text-indigo-900">My Calendar</h2>
             {(isLoading || isRefreshing) && (
-              <div className="animate-spin rounded-full h-4 w-4 border-2 border-border border-t-primary" />
+              <div className="animate-spin rounded-full h-4 w-4 border-2 border-indigo-200 border-t-indigo-600" />
             )}
             <Button 
               variant="outline"
               size="sm"
-              className="ml-2 text-xs flex items-center gap-1 text-foreground hover:bg-primary hover:text-primary-foreground"
+              className="ml-2 text-xs flex items-center gap-1 text-indigo-700 border-indigo-200 hover:bg-indigo-100 hover:text-indigo-800"
               onClick={handleRefresh}
               disabled={isLoading || isRefreshing}
             >
@@ -110,28 +110,28 @@ const CalendarView = () => {
             <Button 
               variant="ghost" 
               size="icon" 
-              className="p-1.5 rounded-full hover:bg-muted"
+              className="p-1.5 rounded-full bg-indigo-50 hover:bg-indigo-100"
               onClick={goToPreviousDay}
             >
-              <ChevronLeft className="h-5 w-5 text-foreground" />
+              <ChevronLeft className="h-5 w-5 text-indigo-700" />
             </Button>
             
-            <span className="text-sm font-medium px-2 text-foreground">
+            <span className="text-sm font-medium px-3 text-indigo-900 bg-indigo-50 py-1 rounded-md">
               {format(selectedDate, "MMMM d, yyyy")}
             </span>
             
             <Button 
               variant="ghost" 
               size="icon" 
-              className="p-1.5 rounded-full hover:bg-muted"
+              className="p-1.5 rounded-full bg-indigo-50 hover:bg-indigo-100"
               onClick={goToNextDay}
             >
-              <ChevronRight className="h-5 w-5 text-foreground" />
+              <ChevronRight className="h-5 w-5 text-indigo-700" />
             </Button>
             
             <Button 
               variant="ghost" 
-              className="ml-2 px-3 py-1 text-sm hover:bg-muted rounded-md"
+              className="ml-2 px-3 py-1 text-sm rounded-md bg-indigo-100 text-indigo-800 hover:bg-indigo-200"
               onClick={goToToday}
               disabled={isSameDay(selectedDate, new Date())}
             >
@@ -145,8 +145,8 @@ const CalendarView = () => {
           {/* Time slots header */}
           <div className="grid grid-cols-1 gap-2 mb-2">
             <div className="flex">
-              <div className="w-16 text-right pr-2 text-xs text-muted-foreground">&nbsp;</div>
-              <div className="flex-1 text-sm font-medium pl-2 py-1 bg-card rounded-md text-card-foreground">
+              <div className="w-16 text-right pr-2 text-xs text-gray-500">&nbsp;</div>
+              <div className="flex-1 text-sm font-medium pl-2 py-1 bg-white/80 rounded-md text-indigo-800 shadow-sm border border-indigo-100">
                 {format(selectedDate, "EEEE, MMMM d")}
               </div>
             </div>
@@ -158,12 +158,12 @@ const CalendarView = () => {
               {Array.from({ length: 10 }).map((_, index) => (
                 <div className="grid grid-cols-1 gap-2 mb-1" key={`skeleton-${index}`}>
                   <div className="flex items-start">
-                    <div className="w-16 text-right pr-2 text-xs text-muted-foreground pt-1">
-                      <Skeleton className="h-4 w-10 ml-auto bg-muted" />
+                    <div className="w-16 text-right pr-2 text-xs pt-1">
+                      <Skeleton className="h-4 w-10 ml-auto bg-indigo-100/50" />
                     </div>
                     <div className="flex-1 relative min-h-[60px]">
                       {index % 3 === 0 && (
-                        <Skeleton className="absolute top-0 left-0 right-0 h-16 rounded-md bg-muted" />
+                        <Skeleton className="absolute top-0 left-0 right-0 h-16 rounded-md bg-indigo-100/30 backdrop-blur-sm border border-indigo-100/50" />
                       )}
                     </div>
                   </div>
@@ -176,7 +176,7 @@ const CalendarView = () => {
           {!isLoading && timeSlots.map((slot) => (
             <div className="grid grid-cols-1 gap-2 mb-1" key={slot.hour}>
               <div className="flex items-start">
-                <div className="w-16 text-right pr-2 text-xs text-muted-foreground pt-1">
+                <div className="w-16 text-right pr-2 text-xs text-gray-500 pt-1 font-medium">
                   {slot.time}
                 </div>
                 <div className="flex-1 relative min-h-[60px]">
@@ -187,30 +187,30 @@ const CalendarView = () => {
                     return (
                       <div 
                         key={event.id}
-                        className={`calendar-event absolute top-0 left-0 right-0 p-2 rounded-md shadow-md transition-transform cursor-pointer hover:translate-y-[-2px] border-l-4 z-10 bg-opacity-80 ${
-                          eventColor === 'google-blue' ? 'bg-card border-primary text-foreground' :
-                          eventColor === 'google-green' ? 'bg-card border-green-500 text-foreground' :
-                          eventColor === 'google-purple' ? 'bg-card border-purple-500 text-foreground' :
-                          eventColor === 'google-red' ? 'bg-card border-red-500 text-foreground' :
-                          eventColor === 'google-yellow' ? 'bg-card border-yellow-500 text-foreground' :
-                          eventColor === 'cyan-500' ? 'bg-card border-cyan-500 text-foreground' :
-                          eventColor === 'orange-500' ? 'bg-card border-orange-500 text-foreground' :
-                          eventColor === 'pink-500' ? 'bg-card border-pink-500 text-foreground' :
-                          eventColor === 'teal-500' ? 'bg-card border-teal-500 text-foreground' :
-                          eventColor === 'indigo-500' ? 'bg-card border-indigo-500 text-foreground' :
-                          eventColor === 'amber-500' ? 'bg-card border-amber-500 text-foreground' :
-                          'bg-card border-primary text-foreground'
+                        className={`calendar-event absolute top-0 left-0 right-0 p-2 rounded-md shadow-md transition-transform cursor-pointer hover:translate-y-[-2px] border-l-4 z-10 bg-white/90 backdrop-blur-sm ${
+                          eventColor === 'google-blue' ? 'border-blue-500 text-gray-800' :
+                          eventColor === 'google-green' ? 'border-green-500 text-gray-800' :
+                          eventColor === 'google-purple' ? 'border-purple-500 text-gray-800' :
+                          eventColor === 'google-red' ? 'border-red-500 text-gray-800' :
+                          eventColor === 'google-yellow' ? 'border-yellow-500 text-gray-800' :
+                          eventColor === 'cyan-500' ? 'border-cyan-500 text-gray-800' :
+                          eventColor === 'orange-500' ? 'border-orange-500 text-gray-800' :
+                          eventColor === 'pink-500' ? 'border-pink-500 text-gray-800' :
+                          eventColor === 'teal-500' ? 'border-teal-500 text-gray-800' :
+                          eventColor === 'indigo-500' ? 'border-indigo-500 text-gray-800' :
+                          eventColor === 'amber-500' ? 'border-amber-500 text-gray-800' :
+                          'border-blue-500 text-gray-800'
                         }`}
                       >
                         <div className="flex items-center justify-between">
-                          <span className="text-sm font-medium text-foreground">
+                          <span className="text-sm font-medium text-gray-800">
                             {event.summary}
                           </span>
-                          <span className="text-xs text-muted-foreground">
+                          <span className="text-xs text-gray-600 bg-gray-100 px-1.5 py-0.5 rounded-full">
                             {format(new Date(event.start.dateTime), "h:mm")} - {format(new Date(event.end.dateTime), "h:mm a")}
                           </span>
                         </div>
-                        <div className="flex items-center mt-1 text-xs text-muted-foreground">
+                        <div className="flex items-center mt-1 text-xs text-gray-600">
                           {event.attendees && event.attendees.length > 0 ? (
                             <>
                               <Users className="h-3 w-3 mr-1" />
@@ -239,11 +239,11 @@ const CalendarView = () => {
           {/* Empty state when no events */}
           {!isLoading && events && events.length === 0 && (
             <div className="py-12 flex flex-col items-center justify-center text-center">
-              <div className="w-16 h-16 bg-muted rounded-full flex items-center justify-center mb-4">
-                <CalendarIcon className="h-6 w-6 text-muted-foreground" />
+              <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mb-4">
+                <CalendarIcon className="h-6 w-6 text-blue-600" />
               </div>
-              <h3 className="text-lg font-medium text-foreground mb-1">No events found</h3>
-              <p className="text-sm text-muted-foreground max-w-xs">
+              <h3 className="text-lg font-medium text-indigo-900 mb-1">No events found</h3>
+              <p className="text-sm text-gray-600 max-w-xs">
                 There are no events scheduled for this day. Enjoy your free time!
               </p>
             </div>
