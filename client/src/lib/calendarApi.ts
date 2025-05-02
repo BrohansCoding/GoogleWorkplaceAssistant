@@ -155,6 +155,129 @@ export const calculateCalendarStats = (events: CalendarEventType[]) => {
   };
 };
 
+// Add a new calendar event
+export const addCalendarEvent = async (
+  summary: string,
+  start: {
+    dateTime: string;
+    timeZone?: string;
+  },
+  end: {
+    dateTime: string;
+    timeZone?: string;
+  },
+  description?: string,
+  location?: string
+): Promise<CalendarEventType> => {
+  try {
+    // Make sure we have a valid token
+    const user = auth.currentUser;
+    if (!user) {
+      throw new Error('Authentication required');
+    }
+    
+    // Get tokens for authentication with our server
+    const idToken = await getIdToken(user, true);
+    const oauthToken = await getGoogleCalendarToken();
+    
+    if (!oauthToken) {
+      throw new Error('Google Calendar access token required');
+    }
+    
+    // First ensure our server has the latest tokens
+    await fetch('/api/auth/token', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        oauthToken, 
+        idToken,
+        user: {
+          uid: user.uid,
+          displayName: user.displayName,
+          email: user.email,
+          photoURL: user.photoURL
+        }
+      }),
+      credentials: 'include'
+    });
+    
+    // Now create the event
+    const response = await fetch('/api/calendar/events', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        summary,
+        description,
+        location,
+        start,
+        end
+      }),
+      credentials: 'include'
+    });
+    
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.message || 'Failed to create event');
+    }
+    
+    const data = await response.json();
+    return data.event;
+  } catch (error) {
+    console.error('Error adding calendar event:', error);
+    throw error;
+  }
+};
+
+// Delete a calendar event
+export const deleteCalendarEvent = async (eventId: string): Promise<void> => {
+  try {
+    // Make sure we have a valid token
+    const user = auth.currentUser;
+    if (!user) {
+      throw new Error('Authentication required');
+    }
+    
+    // Get tokens for authentication with our server
+    const idToken = await getIdToken(user, true);
+    const oauthToken = await getGoogleCalendarToken();
+    
+    if (!oauthToken) {
+      throw new Error('Google Calendar access token required');
+    }
+    
+    // First ensure our server has the latest tokens
+    await fetch('/api/auth/token', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        oauthToken, 
+        idToken,
+        user: {
+          uid: user.uid,
+          displayName: user.displayName,
+          email: user.email,
+          photoURL: user.photoURL
+        }
+      }),
+      credentials: 'include'
+    });
+    
+    // Now delete the event
+    const response = await fetch(`/api/calendar/events/${eventId}`, {
+      method: 'DELETE',
+      credentials: 'include'
+    });
+    
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.message || 'Failed to delete event');
+    }
+  } catch (error) {
+    console.error('Error deleting calendar event:', error);
+    throw error;
+  }
+};
+
 // Format events by hour for day view
 export const organizeEventsByHour = (events: CalendarEventType[], date: Date) => {
   // Create time slots for every hour from 6am to 9pm
@@ -200,4 +323,58 @@ export const organizeEventsByHour = (events: CalendarEventType[], date: Date) =>
   });
   
   return timeSlots;
+};
+
+// Parse AI response for calendar action commands
+export const parseAIActionCommand = (response: string): { 
+  type: 'ADD_EVENT' | 'DELETE_EVENT' | null;
+  data: any;
+  message: string; 
+} => {
+  // Check if response contains an action command
+  if (response.includes('ACTION:ADD_EVENT')) {
+    // Extract JSON data
+    const jsonMatch = response.match(/ACTION:ADD_EVENT\s*(\{[\s\S]*\})/);
+    
+    if (jsonMatch && jsonMatch[1]) {
+      try {
+        // Parse the JSON data
+        const eventData = JSON.parse(jsonMatch[1]);
+        
+        // Get the regular message part (before the ACTION command)
+        const messageParts = response.split('ACTION:ADD_EVENT');
+        const message = messageParts[0].trim();
+        
+        return {
+          type: 'ADD_EVENT',
+          data: eventData,
+          message
+        };
+      } catch (error) {
+        console.error('Error parsing event JSON:', error);
+      }
+    }
+  } else if (response.includes('ACTION:DELETE_EVENT')) {
+    // Extract event ID
+    const idMatch = response.match(/ACTION:DELETE_EVENT\s*([a-zA-Z0-9_]+)/);
+    
+    if (idMatch && idMatch[1]) {
+      // Get the regular message part (before the ACTION command)
+      const messageParts = response.split('ACTION:DELETE_EVENT');
+      const message = messageParts[0].trim();
+      
+      return {
+        type: 'DELETE_EVENT',
+        data: { id: idMatch[1] },
+        message
+      };
+    }
+  }
+  
+  // No action command found
+  return {
+    type: null,
+    data: null,
+    message: response
+  };
 };

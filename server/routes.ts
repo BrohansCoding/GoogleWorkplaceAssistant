@@ -533,7 +533,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         .join("\n");
       
       const systemMessage = `You are a helpful Calendar Assistant that helps users manage their time effectively. 
-      You have access to the user's Google Calendar data.
+      You have access to the user's Google Calendar data and can modify their calendar by adding or removing events.
       
       Current Calendar Summary:
       ${eventsCount > 0 ? `The user has ${eventsCount} events in the selected time period.
@@ -546,11 +546,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
       - Average meeting duration: ${Math.round(calendarSummary.stats.averageDuration)} minutes
       ` : ""}
       
+      CALENDAR MODIFICATION CAPABILITIES:
+      You can create or delete events when asked. When the user asks to add or remove an event:
+      1. For adding events: Respond with "ACTION:ADD_EVENT" followed by the event details in JSON format (summary, start time, end time, description)
+      2. For removing events: Respond with "ACTION:DELETE_EVENT" followed by the event ID to delete
+
       IMPORTANT RULES:
       1. If the user asks something completely unrelated to calendars, scheduling, time management, or productivity, respond with: "I'm a calendar assistant. I don't think I can answer that. But I'd love to help with anything about optimizing your schedule!"
       2. Keep your responses clean, clear, and concise. Limit regular responses to 4 sentences maximum.
       3. When providing time-related information or suggestions, format them as bullet points for easy readability.
       4. Avoid technical jargon and unnecessary complexity in your responses.
+      5. When asked to modify the calendar, follow the ACTION format precisely so the system can parse your response.
       
       Please provide helpful insights, suggestions, and responses based on the user's calendar data.`;
       
@@ -561,6 +567,135 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error getting AI response:", error);
       return res.status(500).json({ message: "Failed to get assistant response" });
+    }
+  });
+
+  // Add a new calendar event
+  app.post("/api/calendar/events", async (req: Request, res: Response) => {
+    try {
+      const { summary, description, location, start, end } = req.body;
+      
+      // Validate required fields
+      if (!summary || !start || !end) {
+        return res.status(400).json({ 
+          message: "Missing required fields. Event needs summary, start, and end time."
+        });
+      }
+      
+      // Get token from session
+      const token = (req.session as any)?.googleApiToken || (req.session as any)?.googleToken as string | undefined;
+      
+      if (!token) {
+        return res.status(401).json({ 
+          message: "Authentication required",
+          code: "AUTH_REQUIRED"
+        });
+      }
+      
+      // Create event in Google Calendar
+      const response = await axios.post(
+        "https://www.googleapis.com/calendar/v3/calendars/primary/events",
+        {
+          summary,
+          description: description || "",
+          location: location || "",
+          start,
+          end
+        },
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json"
+          }
+        }
+      );
+      
+      // Return the created event
+      return res.status(201).json({ event: response.data });
+      
+    } catch (error) {
+      console.error("Error creating calendar event:", error);
+      
+      if (axios.isAxiosError(error)) {
+        console.error("Google API error details:", {
+          status: error.response?.status,
+          data: error.response?.data
+        });
+        
+        if (error.response?.status === 401) {
+          return res.status(401).json({ 
+            message: "Token expired", 
+            code: "TOKEN_EXPIRED"
+          });
+        }
+      }
+      
+      return res.status(500).json({ 
+        message: "Failed to create calendar event",
+        error: error instanceof Error ? error.message : String(error)
+      });
+    }
+  });
+  
+  // Delete a calendar event
+  app.delete("/api/calendar/events/:eventId", async (req: Request, res: Response) => {
+    try {
+      const { eventId } = req.params;
+      
+      if (!eventId) {
+        return res.status(400).json({ message: "Event ID is required" });
+      }
+      
+      // Get token from session
+      const token = (req.session as any)?.googleApiToken || (req.session as any)?.googleToken as string | undefined;
+      
+      if (!token) {
+        return res.status(401).json({ 
+          message: "Authentication required",
+          code: "AUTH_REQUIRED"
+        });
+      }
+      
+      // Delete event from Google Calendar
+      await axios.delete(
+        `https://www.googleapis.com/calendar/v3/calendars/primary/events/${eventId}`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`
+          }
+        }
+      );
+      
+      return res.status(200).json({ message: "Event deleted successfully" });
+      
+    } catch (error) {
+      console.error("Error deleting calendar event:", error);
+      
+      if (axios.isAxiosError(error)) {
+        console.error("Google API error details:", {
+          status: error.response?.status,
+          data: error.response?.data
+        });
+        
+        if (error.response?.status === 401) {
+          return res.status(401).json({ 
+            message: "Token expired", 
+            code: "TOKEN_EXPIRED"
+          });
+        }
+        
+        if (error.response?.status === 404) {
+          return res.status(404).json({ 
+            message: "Event not found", 
+            code: "EVENT_NOT_FOUND"
+          });
+        }
+      }
+      
+      return res.status(500).json({ 
+        message: "Failed to delete calendar event",
+        error: error instanceof Error ? error.message : String(error)
+      });
     }
   });
 
