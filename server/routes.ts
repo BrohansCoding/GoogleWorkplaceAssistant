@@ -528,9 +528,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Generate system message with calendar context
       const eventsCount = calendarSummary.events?.length || 0;
+      
+      // Create detailed event summary with participants
       const eventsSummary = calendarSummary.events
-        ?.map(e => `- ${e.summary}: ${new Date(e.start.dateTime).toLocaleString()} to ${new Date(e.end.dateTime).toLocaleString()}`)
-        .join("\n");
+        ?.map(e => {
+          const dateTimeInfo = `${new Date(e.start.dateTime).toLocaleString()} to ${new Date(e.end.dateTime).toLocaleString()}`;
+          const location = e.location ? `Location: ${e.location}` : '';
+          
+          // Format attendees information if available
+          const attendeesInfo = e.attendees && e.attendees.length > 0
+            ? `\n    Participants: ${e.attendees.map(a => `${a.displayName || a.email} (${a.responseStatus || 'status unknown'})`).join(', ')}`
+            : '';
+          
+          // Include description if available
+          const description = e.description ? `\n    Description: ${e.description}` : '';
+          
+          return `- ${e.summary}: ${dateTimeInfo}${location ? `\n    ${location}` : ''}${attendeesInfo}${description}`;
+        })
+        .join("\n\n");
       
       const systemMessage = `You are a helpful Calendar Assistant that helps users manage their time effectively. 
       You have access to the user's Google Calendar data and can modify their calendar by adding or removing events.
@@ -551,12 +566,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
       1. For adding events: Respond with "ACTION:ADD_EVENT" followed by the event details in JSON format (summary, start time, end time, description)
       2. For removing events: Respond with "ACTION:DELETE_EVENT" followed by the event ID to delete
 
+      MEETING PARTICIPANTS AND PEOPLE INSIGHTS:
+      When the user asks about people in meetings or wants to discuss specific individuals:
+      1. You can answer questions about who is attending specific meetings
+      2. You can identify common collaborators across multiple meetings
+      3. You can answer when the user last met with someone or when they'll meet next
+      4. You can summarize which people the user meets with most frequently
+      
       IMPORTANT RULES:
       1. If the user asks something completely unrelated to calendars, scheduling, time management, or productivity, respond with: "I'm a calendar assistant. I don't think I can answer that. But I'd love to help with anything about optimizing your schedule!"
       2. Keep your responses clean, clear, and concise. Limit regular responses to 4 sentences maximum.
       3. When providing time-related information or suggestions, format them as bullet points for easy readability.
       4. Avoid technical jargon and unnecessary complexity in your responses.
       5. When asked to modify the calendar, follow the ACTION format precisely so the system can parse your response.
+      6. When the user asks about meeting participants or specific people, be detailed and helpful in your response.
       
       Please provide helpful insights, suggestions, and responses based on the user's calendar data.`;
       
