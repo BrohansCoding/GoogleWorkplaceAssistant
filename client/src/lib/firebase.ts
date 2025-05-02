@@ -83,9 +83,21 @@ export const clearOAuthToken = () => {
 const createGoogleProvider = () => {
   const provider = new GoogleAuthProvider();
   
-  // CRITICAL: These are the EXACT scopes needed for Google Calendar API with write access
-  provider.addScope('https://www.googleapis.com/auth/calendar');           // Full access to Calendar
-  provider.addScope('https://www.googleapis.com/auth/calendar.events');    // Full access to Events
+  // Check if we need calendar write permission
+  const needsWrite = window.localStorage.getItem('NEED_CALENDAR_WRITE') === 'true';
+  
+  if (needsWrite) {
+    console.log('Creating Google provider with WRITE permissions for calendar...');
+    // CRITICAL: These are the EXACT scopes needed for Google Calendar API with write access
+    provider.addScope('https://www.googleapis.com/auth/calendar');           // Full access to Calendar
+    provider.addScope('https://www.googleapis.com/auth/calendar.events');    // Full access to Events
+  } else {
+    console.log('Creating Google provider with READ-ONLY permissions for calendar...');
+    // Only request read-only permissions for initial login
+    provider.addScope('https://www.googleapis.com/auth/calendar.readonly');  // Read-only access
+  }
+  
+  // Always include these basic scopes
   provider.addScope('profile');
   provider.addScope('email');
   
@@ -211,6 +223,14 @@ export const signInWithGoogle = async () => {
     
     // Store OAuth token
     storeOAuthToken(oauthToken);
+    
+    // Check if we successfully acquired write permission and clear flag
+    const hadRequestedWritePermission = window.localStorage.getItem('NEED_CALENDAR_WRITE') === 'true';
+    if (hadRequestedWritePermission) {
+      console.log("Successfully obtained calendar write permissions!");
+      // Clear the flag after use
+      window.localStorage.removeItem('NEED_CALENDAR_WRITE');
+    }
     
     // Get Firebase ID token for our backend
     let idToken = null;
@@ -384,20 +404,28 @@ export const onAuthChange = (callback: (user: User | null) => void) => {
   return onAuthStateChanged(auth, callback);
 };
 
-// Force re-authentication with updated scopes
+// Force re-authentication with updated scopes to get write permission
 export const forceReauthWithUpdatedScopes = async () => {
   try {
+    console.log('Forcing re-auth with updated scopes for write permission...');
+    
     // Clear all tokens first
     clearOAuthToken();
+    
+    // Store a message for the user explaining why they need to sign in again
+    window.localStorage.setItem('AUTH_MESSAGE', 'You need to sign in again to grant permission to modify your calendar.');
+    
+    // Add a flag to indicate we need calendar write permission
+    window.localStorage.setItem('NEED_CALENDAR_WRITE', 'true');
     
     // Sign out
     await signOut();
     
-    // Force re-auth with new scopes
-    window.localStorage.setItem('FORCE_REAUTH', 'true');
-    
     // Return success
-    return { success: true, message: 'Please sign in again to grant calendar write permission' };
+    return { 
+      success: true, 
+      message: 'Please sign in again to grant calendar write permission. You were signed out because your current permissions only allow reading your calendar, not modifying it.'
+    };
   } catch (error) {
     console.error('Error during forced re-authentication:', error);
     return { success: false, error };

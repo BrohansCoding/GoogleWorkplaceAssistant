@@ -4,13 +4,32 @@ import { CalendarIcon } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { signInWithGoogle } from "@/lib/firebase";
 import { AuthContext } from "./SimpleAuthProvider";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { AlertCircle } from "lucide-react";
 
 const SimpleLogin = () => {
   const { isLoading } = useContext(AuthContext);
   const [signingIn, setSigningIn] = useState(false);
+  const [authMessage, setAuthMessage] = useState<string | null>(null);
+  const [needsWritePermission, setNeedsWritePermission] = useState(false);
   
   // Force reset the signing in state when component renders
   useEffect(() => {
+    // Check for authentication message
+    const storedMessage = window.localStorage.getItem('AUTH_MESSAGE');
+    if (storedMessage) {
+      setAuthMessage(storedMessage);
+      // Clear it after reading
+      window.localStorage.removeItem('AUTH_MESSAGE');
+    }
+    
+    // Check if we need calendar write permission
+    const needsWrite = window.localStorage.getItem('NEED_CALENDAR_WRITE');
+    if (needsWrite === 'true') {
+      setNeedsWritePermission(true);
+      // Don't remove this flag - we'll need it for the sign-in process
+    }
+    
     setSigningIn(false);
   }, []);
   
@@ -39,9 +58,29 @@ const SimpleLogin = () => {
     <div className="flex flex-col items-center justify-center h-screen bg-gradient-to-br from-gray-900 to-gray-800">
       <div className="text-center p-8 max-w-md backdrop-blur-sm bg-gray-800/70 rounded-2xl shadow-lg border border-gray-700">
         <h1 className="text-4xl font-bold mb-2 text-white">G Assistant</h1>
-        <p className="text-gray-300 mb-6">
+        <p className="text-gray-300 mb-4">
           Your intelligent assistant for productivity and organization
         </p>
+        
+        {authMessage && (
+          <Alert className="mb-4 bg-amber-950 border-amber-800 text-left">
+            <AlertCircle className="h-4 w-4 text-amber-400" />
+            <AlertTitle className="text-amber-300">Authentication Required</AlertTitle>
+            <AlertDescription className="text-amber-200">
+              {authMessage}
+            </AlertDescription>
+          </Alert>
+        )}
+        
+        {needsWritePermission && !authMessage && (
+          <Alert className="mb-4 bg-blue-950 border-blue-800 text-left">
+            <AlertCircle className="h-4 w-4 text-blue-400" />
+            <AlertTitle className="text-blue-300">Calendar Write Permission</AlertTitle>
+            <AlertDescription className="text-blue-200">
+              You're being asked to sign in again to grant permission for adding and removing calendar events.
+            </AlertDescription>
+          </Alert>
+        )}
         
         <div className="flex flex-wrap justify-center gap-6 mb-8">
           <div className="text-center p-4">
@@ -82,7 +121,9 @@ const SimpleLogin = () => {
             className="w-5 h-5" 
           />
           <span className="text-gray-100 font-medium">
-            {loading ? "Signing in..." : "Sign in with Google"}
+            {loading ? "Signing in..." : needsWritePermission 
+              ? "Sign in with Enhanced Access" 
+              : "Sign in with Google"}
           </span>
         </Button>
         
