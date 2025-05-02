@@ -147,7 +147,9 @@ export const organizeEventsByHour = (events: CalendarEventType[], date: Date) =>
   const hours = Array.from({ length: endHour - startHour + 1 }, (_, i) => i + startHour);
   
   const timeSlots = hours.map(hour => {
-    const hourDate = new Date(date.setHours(hour, 0, 0, 0));
+    // Create a new date object to avoid modifying the original date
+    const hourDate = new Date(date);
+    hourDate.setHours(hour, 0, 0, 0);
     return {
       hour,
       time: format(hourDate, 'h:mm a'),
@@ -157,18 +159,24 @@ export const organizeEventsByHour = (events: CalendarEventType[], date: Date) =>
   
   // Assign events to their respective time slots
   events.forEach(event => {
+    // Skip events without dateTime field (all-day events use 'date' instead of 'dateTime')
+    if (!event.start.dateTime) {
+      return;
+    }
+    
     const startTime = parseISO(event.start.dateTime);
-    const startHour = startTime.getHours();
+    const eventStartHour = startTime.getHours();
     
     // Find the appropriate time slot
-    const slotIndex = timeSlots.findIndex(slot => slot.hour === startHour);
+    const slotIndex = timeSlots.findIndex(slot => slot.hour === eventStartHour);
     
     if (slotIndex !== -1) {
+      // Event falls within our displayed hours
       timeSlots[slotIndex].events.push(event);
-    } else if (startHour < startHour) {
+    } else if (eventStartHour < startHour) {
       // Early morning events go into the first slot
       timeSlots[0].events.push(event);
-    } else if (startHour > endHour) {
+    } else if (eventStartHour > endHour) {
       // Late night events go into the last slot
       timeSlots[timeSlots.length - 1].events.push(event);
     }

@@ -81,7 +81,8 @@ export const useCalendar = () => {
   }, [setStats, toast]);
 
   return {
-    events,
+    // Ensure events is always an array, even if null comes from context
+    events: events || [],
     stats,
     isLoading,
     error,

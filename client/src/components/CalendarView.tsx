@@ -20,12 +20,15 @@ const CalendarView = () => {
   const { toast } = useToast();
 
   useEffect(() => {
+    console.log("Fetching events for date:", selectedDate);
     fetchEvents(selectedDate);
   }, [selectedDate, fetchEvents]);
 
   useEffect(() => {
+    console.log("Events from calendar API:", events);
     if (events) {
       const organized = organizeEventsByHour(events, selectedDate);
+      console.log("Organized time slots:", organized);
       setTimeSlots(organized);
     }
   }, [events, selectedDate]);
@@ -177,39 +180,57 @@ const CalendarView = () => {
                   {slot.time}
                 </div>
                 <div className="flex-1 relative min-h-[60px]">
-                  {slot.events.map((event) => (
-                    <div 
-                      key={event.id}
-                      className={`calendar-event absolute top-0 left-0 right-0 p-2 rounded-md bg-${getEventColor(event.colorId)} bg-opacity-10 border-l-4 border-${getEventColor(event.colorId)} shadow-sm transition-transform cursor-pointer hover:translate-y-[-2px]`}
-                    >
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm font-medium text-neutral-800">
-                          {event.summary}
-                        </span>
-                        <span className="text-xs text-neutral-600">
-                          {format(new Date(event.start.dateTime), "h:mm")} - {format(new Date(event.end.dateTime), "h:mm a")}
-                        </span>
+                  {slot.events.map((event) => {
+                    // Get the color for the event
+                    const eventColor = getEventColor(event.colorId);
+                    // Use className string concatenation to ensure Tailwind picks up the classes
+                    return (
+                      <div 
+                        key={event.id}
+                        className={`calendar-event absolute top-0 left-0 right-0 p-2 rounded-md shadow-sm transition-transform cursor-pointer hover:translate-y-[-2px] bg-opacity-10 border-l-4 ${
+                          eventColor === 'google-blue' ? 'bg-google-blue border-google-blue' :
+                          eventColor === 'google-green' ? 'bg-google-green border-google-green' :
+                          eventColor === 'google-purple' ? 'bg-google-purple border-google-purple' :
+                          eventColor === 'google-red' ? 'bg-google-red border-google-red' :
+                          eventColor === 'google-yellow' ? 'bg-google-yellow border-google-yellow' :
+                          eventColor === 'cyan-500' ? 'bg-cyan-500 border-cyan-500' :
+                          eventColor === 'orange-500' ? 'bg-orange-500 border-orange-500' :
+                          eventColor === 'pink-500' ? 'bg-pink-500 border-pink-500' :
+                          eventColor === 'teal-500' ? 'bg-teal-500 border-teal-500' :
+                          eventColor === 'indigo-500' ? 'bg-indigo-500 border-indigo-500' :
+                          eventColor === 'amber-500' ? 'bg-amber-500 border-amber-500' :
+                          'bg-google-blue border-google-blue'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm font-medium text-neutral-800">
+                            {event.summary}
+                          </span>
+                          <span className="text-xs text-neutral-600">
+                            {format(new Date(event.start.dateTime), "h:mm")} - {format(new Date(event.end.dateTime), "h:mm a")}
+                          </span>
+                        </div>
+                        <div className="flex items-center mt-1 text-xs text-neutral-600">
+                          {event.attendees && event.attendees.length > 0 ? (
+                            <>
+                              <Users className="text-neutral-500 h-3 w-3 mr-1" />
+                              <span>{event.attendees.length} participants</span>
+                            </>
+                          ) : event.location ? (
+                            <>
+                              <MapPin className="text-neutral-500 h-3 w-3 mr-1" />
+                              <span>{event.location}</span>
+                            </>
+                          ) : (
+                            <>
+                              <VideoIcon className="text-neutral-500 h-3 w-3 mr-1" />
+                              <span>Google Meet</span>
+                            </>
+                          )}
+                        </div>
                       </div>
-                      <div className="flex items-center mt-1 text-xs text-neutral-600">
-                        {event.attendees && event.attendees.length > 0 ? (
-                          <>
-                            <Users className="text-neutral-500 h-3 w-3 mr-1" />
-                            <span>{event.attendees.length} participants</span>
-                          </>
-                        ) : event.location ? (
-                          <>
-                            <MapPin className="text-neutral-500 h-3 w-3 mr-1" />
-                            <span>{event.location}</span>
-                          </>
-                        ) : (
-                          <>
-                            <VideoIcon className="text-neutral-500 h-3 w-3 mr-1" />
-                            <span>Google Meet</span>
-                          </>
-                        )}
-                      </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </div>
             </div>
