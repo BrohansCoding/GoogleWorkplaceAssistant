@@ -149,9 +149,9 @@ const ChatInterface = () => {
 
   return (
     <section className="w-full h-full flex flex-col">
-      <div className="bg-gray-800/95 overflow-hidden flex flex-col h-full w-full">
+      <div className="bg-gray-800/95 flex flex-col h-full w-full">
         {/* Chat Header */}
-        <div className="p-3 border-b border-gray-700 flex items-center justify-between">
+        <div className="sticky top-0 z-10 p-3 border-b border-gray-700 flex items-center justify-between bg-gray-800/95 backdrop-blur-sm">
           <div className="flex items-center gap-2">
             <Bot className="h-5 w-5 text-blue-400" />
             <h3 className="text-sm font-medium text-gray-200">Calendar Assistant</h3>
@@ -168,8 +168,8 @@ const ChatInterface = () => {
           )}
         </div>
         
-        {/* Chat Messages - flex-1 ensures this takes available space, pushing input to bottom */}
-        <div className="flex-1 overflow-y-auto p-3 space-y-3 min-h-0">
+        {/* Chat Messages - Scrollable container with fixed height */}
+        <div className="flex-1 overflow-y-auto p-3 space-y-3 min-h-0 max-h-[calc(100vh-14rem)]">
           {/* Welcome Message */}
           {messages.length === 0 && (
             <div className="text-center py-4">
@@ -219,8 +219,8 @@ const ChatInterface = () => {
           <div ref={messagesEndRef} />
         </div>
         
-        {/* Chat Input */}
-        <div className="p-3 border-t border-gray-700">
+        {/* Chat Input - Fixed at the bottom */}
+        <div className="sticky bottom-0 p-3 border-t border-gray-700 bg-gray-800/95 backdrop-blur-sm">
           <form onSubmit={handleSubmit}>
             <div className="relative">
               <Input
