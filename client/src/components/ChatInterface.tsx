@@ -1,8 +1,7 @@
 import { useState, useRef, useEffect, useContext, useCallback } from "react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Send, Bot, Info, Trash, X, MessageSquare } from "lucide-react";
+import { Send, Bot, Trash } from "lucide-react";
 import { ChatMessageType, GroqChatRequest } from "@shared/schema";
 import { CalendarContext } from "@/context/CalendarContext";
 import { useToast } from "@/hooks/use-toast";
@@ -148,101 +147,99 @@ const ChatInterface = () => {
   };
 
   return (
-    <section className="h-full flex flex-col bg-gray-800">
-      <div className="flex flex-col h-full">
-        {/* Chat Header */}
-        <div className="flex items-center justify-between p-3 border-b border-gray-700 bg-gray-800">
-          <div className="flex items-center gap-2">
-            <Bot className="h-5 w-5 text-blue-400" />
-            <h3 className="text-sm font-medium text-gray-200">Calendar Assistant</h3>
-          </div>
-          {messages.length > 0 && (
-            <Button 
-              variant="ghost"
-              size="icon"
-              className="h-7 w-7 rounded-full hover:bg-gray-700"
-              onClick={clearChat}
-            >
-              <Trash className="h-3 w-3 text-gray-400" />
-            </Button>
-          )}
+    <div className="h-full flex flex-col bg-gray-800">
+      {/* Chat Header */}
+      <div className="p-3 border-b border-gray-700 bg-gray-800 flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <Bot className="h-5 w-5 text-blue-400" />
+          <h3 className="text-sm font-medium text-gray-200">Calendar Assistant</h3>
         </div>
-        
-        {/* Chat Messages Container - Fixed height with scroll */}
-        <div className="flex-grow overflow-y-auto p-3 space-y-3">
-          {/* Welcome Message */}
-          {messages.length === 0 && (
-            <div className="text-center py-4">
-              <div className="w-12 h-12 bg-gray-700/30 rounded-full flex items-center justify-center mx-auto mb-3">
-                <Bot className="h-6 w-6 text-blue-400" />
-              </div>
-              <p className="text-sm text-gray-400 max-w-xs mx-auto">
-                Ask me about your schedule, upcoming meetings, or to summarize your calendar.
-              </p>
-            </div>
-          )}
-          
-          {/* Chat Messages */}
-          {messages.map((message, index) => (
-            <div 
-              key={index} 
-              className={`chat-message ${
-                message.role === "user" ? "text-right" : ""
-              }`}
-            >
-              {message.role === "user" ? (
-                <div className="inline-block bg-blue-600 text-white px-3 py-2 rounded-t-lg rounded-bl-lg shadow-md max-w-[85%]">
-                  <p className="text-sm">{message.content}</p>
-                </div>
-              ) : (
-                <div className="inline-block bg-gray-900 text-gray-200 px-3 py-2 rounded-t-lg rounded-br-lg shadow-md border border-gray-700 max-w-[85%]">
-                  <ChatMessageContent content={message.content} />
-                </div>
-              )}
-            </div>
-          ))}
-
-          {/* Loading state for chat */}
-          {isLoading && (
-            <div className="chat-message">
-              <div className="inline-block bg-gray-900 text-gray-200 px-4 py-3 rounded-lg shadow-md border border-gray-700 flex items-center">
-                <div className="flex gap-1">
-                  <div className="h-2 w-2 bg-blue-400 rounded-full animate-pulse"></div>
-                  <div className="h-2 w-2 bg-blue-400 rounded-full animate-pulse delay-100"></div>
-                  <div className="h-2 w-2 bg-blue-400 rounded-full animate-pulse delay-200"></div>
-                </div>
-              </div>
-            </div>
-          )}
-          
-          {/* Invisible element to scroll to */}
-          <div ref={messagesEndRef} />
-        </div>
-        
-        {/* Chat Input - Fixed at the bottom */}
-        <div className="p-3 border-t border-gray-700 bg-gray-800">
-          <form onSubmit={handleSubmit}>
-            <div className="relative">
-              <Input
-                type="text"
-                placeholder="Ask about your calendar..."
-                className="w-full pl-4 pr-12 py-2 bg-gray-900 border border-gray-700 rounded-full focus:outline-none focus:ring-1 focus:ring-blue-500"
-                value={inputValue}
-                onChange={(e) => setInputValue(e.target.value)}
-                disabled={isLoading}
-              />
-              <Button 
-                type="submit" 
-                className="absolute right-1 top-1/2 transform -translate-y-1/2 w-8 h-8 flex items-center justify-center bg-blue-600 text-white rounded-full disabled:opacity-50 disabled:bg-gray-700"
-                disabled={!inputValue.trim() || isLoading}
-              >
-                <Send className="h-4 w-4" />
-              </Button>
-            </div>
-          </form>
-        </div>
+        {messages.length > 0 && (
+          <Button 
+            variant="ghost"
+            size="icon"
+            className="h-7 w-7 rounded-full hover:bg-gray-700"
+            onClick={clearChat}
+          >
+            <Trash className="h-3 w-3 text-gray-400" />
+          </Button>
+        )}
       </div>
-    </section>
+      
+      {/* Chat Messages Container */}
+      <div className="flex-1 overflow-y-auto p-3 space-y-3" style={{ height: 'calc(100% - 110px)' }}>
+        {/* Welcome Message */}
+        {messages.length === 0 && (
+          <div className="text-center py-4">
+            <div className="w-12 h-12 bg-gray-700/30 rounded-full flex items-center justify-center mx-auto mb-3">
+              <Bot className="h-6 w-6 text-blue-400" />
+            </div>
+            <p className="text-sm text-gray-400 max-w-xs mx-auto">
+              Ask me about your schedule, upcoming meetings, or to summarize your calendar.
+            </p>
+          </div>
+        )}
+        
+        {/* Chat Messages */}
+        {messages.map((message, index) => (
+          <div 
+            key={index} 
+            className={`chat-message ${
+              message.role === "user" ? "text-right" : ""
+            }`}
+          >
+            {message.role === "user" ? (
+              <div className="inline-block bg-blue-600 text-white px-3 py-2 rounded-t-lg rounded-bl-lg shadow-md max-w-[85%]">
+                <p className="text-sm">{message.content}</p>
+              </div>
+            ) : (
+              <div className="inline-block bg-gray-900 text-gray-200 px-3 py-2 rounded-t-lg rounded-br-lg shadow-md border border-gray-700 max-w-[85%]">
+                <ChatMessageContent content={message.content} />
+              </div>
+            )}
+          </div>
+        ))}
+
+        {/* Loading state for chat */}
+        {isLoading && (
+          <div className="chat-message">
+            <div className="inline-block bg-gray-900 text-gray-200 px-4 py-3 rounded-lg shadow-md border border-gray-700 flex items-center">
+              <div className="flex gap-1">
+                <div className="h-2 w-2 bg-blue-400 rounded-full animate-pulse"></div>
+                <div className="h-2 w-2 bg-blue-400 rounded-full animate-pulse delay-100"></div>
+                <div className="h-2 w-2 bg-blue-400 rounded-full animate-pulse delay-200"></div>
+              </div>
+            </div>
+          </div>
+        )}
+        
+        {/* Invisible element to scroll to */}
+        <div ref={messagesEndRef} />
+      </div>
+      
+      {/* Chat Input */}
+      <div className="p-3 border-t border-gray-700 bg-gray-800">
+        <form onSubmit={handleSubmit}>
+          <div className="relative">
+            <Input
+              type="text"
+              placeholder="Ask about your calendar..."
+              className="w-full pl-4 pr-12 py-2 bg-gray-900 border border-gray-700 rounded-full focus:outline-none focus:ring-1 focus:ring-blue-500"
+              value={inputValue}
+              onChange={(e) => setInputValue(e.target.value)}
+              disabled={isLoading}
+            />
+            <Button 
+              type="submit" 
+              className="absolute right-1 top-1/2 transform -translate-y-1/2 w-8 h-8 flex items-center justify-center bg-blue-600 text-white rounded-full disabled:opacity-50 disabled:bg-gray-700"
+              disabled={!inputValue.trim() || isLoading}
+            >
+              <Send className="h-4 w-4" />
+            </Button>
+          </div>
+        </form>
+      </div>
+    </div>
   );
 };
 
