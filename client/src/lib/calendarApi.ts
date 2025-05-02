@@ -181,11 +181,14 @@ export const addCalendarEvent = async (
     const oauthToken = await getGoogleCalendarToken();
     
     if (!oauthToken) {
-      throw new Error('Google Calendar access token required');
+      // No OAuth token - need to re-authenticate for write permissions
+      clearOAuthToken(); // Clear any existing token
+      await signOut(); // Sign out completely
+      throw new Error('Please sign in again to grant calendar write permission');
     }
     
     // First ensure our server has the latest tokens
-    await fetch('/api/auth/token', {
+    const tokenResponse = await fetch('/api/auth/token', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -200,6 +203,11 @@ export const addCalendarEvent = async (
       }),
       credentials: 'include'
     });
+    
+    if (!tokenResponse.ok) {
+      // Token update failed, might indicate an invalid/expired token
+      throw new Error('Failed to update authentication token');
+    }
     
     // Now create the event
     const response = await fetch('/api/calendar/events', {
@@ -217,7 +225,19 @@ export const addCalendarEvent = async (
     
     if (!response.ok) {
       const errorData = await response.json();
-      throw new Error(errorData.message || 'Failed to create event');
+      const errorMessage = errorData.message || 'Failed to create event';
+      
+      // Check if this is a permission error from Google
+      if (errorData.error && 
+          (errorData.error.includes('insufficient authentication scopes') || 
+           errorData.error.includes('PERMISSION_DENIED'))) {
+        // Clear stored tokens and force re-auth with the new scopes
+        clearOAuthToken();
+        await signOut();
+        throw new Error('Calendar write permission required. Please sign in again.');
+      }
+      
+      throw new Error(errorMessage);
     }
     
     const data = await response.json();
@@ -242,11 +262,14 @@ export const deleteCalendarEvent = async (eventId: string): Promise<void> => {
     const oauthToken = await getGoogleCalendarToken();
     
     if (!oauthToken) {
-      throw new Error('Google Calendar access token required');
+      // No OAuth token - need to re-authenticate for write permissions
+      clearOAuthToken(); // Clear any existing token
+      await signOut(); // Sign out completely
+      throw new Error('Please sign in again to grant calendar write permission');
     }
     
     // First ensure our server has the latest tokens
-    await fetch('/api/auth/token', {
+    const tokenResponse = await fetch('/api/auth/token', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -262,6 +285,11 @@ export const deleteCalendarEvent = async (eventId: string): Promise<void> => {
       credentials: 'include'
     });
     
+    if (!tokenResponse.ok) {
+      // Token update failed, might indicate an invalid/expired token
+      throw new Error('Failed to update authentication token');
+    }
+    
     // Now delete the event
     const response = await fetch(`/api/calendar/events/${eventId}`, {
       method: 'DELETE',
@@ -270,7 +298,19 @@ export const deleteCalendarEvent = async (eventId: string): Promise<void> => {
     
     if (!response.ok) {
       const errorData = await response.json();
-      throw new Error(errorData.message || 'Failed to delete event');
+      const errorMessage = errorData.message || 'Failed to delete event';
+      
+      // Check if this is a permission error from Google
+      if (errorData.error && 
+          (errorData.error.includes('insufficient authentication scopes') || 
+           errorData.error.includes('PERMISSION_DENIED'))) {
+        // Clear stored tokens and force re-auth with the new scopes
+        clearOAuthToken();
+        await signOut();
+        throw new Error('Calendar write permission required. Please sign in again.');
+      }
+      
+      throw new Error(errorMessage);
     }
   } catch (error) {
     console.error('Error deleting calendar event:', error);
