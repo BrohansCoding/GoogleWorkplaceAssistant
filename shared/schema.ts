@@ -5,21 +5,14 @@ import { z } from "zod";
 // User model
 export const users = pgTable("users", {
   id: serial("id").primaryKey(),
-  // Firebase UID as primary external identifier
-  firebaseUid: text("firebase_uid").notNull().unique(),
-  // Optional username for future use
-  username: text("username").unique(),
-  // User profile info from Google
+  username: text("username").notNull().unique(),
+  password: text("password").notNull(),
+  googleId: text("google_id"),
   displayName: text("display_name"),
   email: text("email"),
   photoURL: text("photo_url"),
-  // Google Calendar integration tokens
   accessToken: text("access_token"),
   refreshToken: text("refresh_token"),
-  // When the user was first created
-  createdAt: timestamp("created_at").notNull().defaultNow(),
-  // Last login time
-  lastLoginAt: timestamp("last_login_at").notNull().defaultNow(),
 });
 
 // Chat history
@@ -47,8 +40,9 @@ export const calendarEvents = pgTable("calendar_events", {
 
 // Define schemas and types for insertion
 export const insertUserSchema = createInsertSchema(users).pick({
-  firebaseUid: true,
   username: true,
+  password: true,
+  googleId: true,
   displayName: true,
   email: true,
   photoURL: true,
