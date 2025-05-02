@@ -129,10 +129,15 @@ const ChatInterface = () => {
 
   // Scroll to bottom when messages change
   useEffect(() => {
-    if (messagesEndRef.current) {
-      messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
-    }
-  }, [messages]);
+    // Use a slight delay to ensure DOM is fully updated
+    const timer = setTimeout(() => {
+      if (messagesEndRef.current) {
+        messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
+      }
+    }, 100);
+    
+    return () => clearTimeout(timer);
+  }, [messages, isLoading]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -143,7 +148,7 @@ const ChatInterface = () => {
   };
 
   return (
-    <section className="w-full flex flex-col h-full p-2">
+    <section className="w-full h-full flex flex-col p-2">
       <div className="bg-gray-800/95 rounded-lg shadow-lg border border-gray-700 overflow-hidden flex flex-col h-full">
         {/* Chat Header */}
         <div className="p-3 border-b border-gray-700 flex items-center justify-between">
@@ -163,8 +168,8 @@ const ChatInterface = () => {
           )}
         </div>
         
-        {/* Chat Messages */}
-        <div className="flex-1 overflow-y-auto p-3 space-y-3">
+        {/* Chat Messages - flex-1 ensures this takes available space, pushing input to bottom */}
+        <div className="flex-1 overflow-y-auto p-3 space-y-3 min-h-0">
           {/* Welcome Message */}
           {messages.length === 0 && (
             <div className="text-center py-4">

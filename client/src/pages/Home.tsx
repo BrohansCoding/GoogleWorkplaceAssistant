@@ -31,7 +31,7 @@ const Home = () => {
               <div className="lg:col-span-3 h-full">
                 <CalendarView />
               </div>
-              <div className="hidden lg:block sticky top-0 h-screen overflow-y-auto">
+              <div className="hidden lg:block lg:h-full">
                 <ChatInterface />
               </div>
             </div>
