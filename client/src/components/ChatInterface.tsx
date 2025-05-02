@@ -143,18 +143,18 @@ const ChatInterface = () => {
   };
 
   return (
-    <section className="w-full flex flex-col bg-neutral-50 h-full">
+    <section className="w-full flex flex-col bg-background h-full">
       {/* Chat Messages Area */}
       <div className="flex-1 overflow-y-auto p-4">
         <div className="max-w-lg mx-auto">
           {/* Welcome Message */}
           {messages.length === 0 && (
             <div className="mb-6 text-center">
-              <div className="w-12 h-12 bg-google-blue bg-opacity-10 rounded-full flex items-center justify-center mx-auto mb-3">
-                <Bot className="h-5 w-5 text-google-blue" />
+              <div className="w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-3">
+                <Bot className="h-5 w-5 text-primary" />
               </div>
-              <h2 className="text-lg font-medium text-neutral-800 mb-1">Calendar Agent</h2>
-              <p className="text-sm text-neutral-600">
+              <h2 className="text-lg font-medium text-foreground mb-1">Calendar Agent</h2>
+              <p className="text-sm text-muted-foreground">
                 Ask me questions about your schedule, and I'll help you manage your time effectively.
               </p>
             </div>
@@ -169,11 +169,11 @@ const ChatInterface = () => {
               }`}
             >
               {message.role === "user" ? (
-                <div className="chat-bubble-user bg-google-blue text-white px-4 py-2 max-w-xs rounded-t-xl rounded-bl-xl shadow-sm">
+                <div className="chat-bubble-user bg-primary text-primary-foreground px-4 py-2 max-w-xs rounded-t-xl rounded-bl-xl shadow-md">
                   <p className="text-sm">{message.content}</p>
                 </div>
               ) : (
-                <div className="chat-bubble-assistant bg-white text-neutral-800 px-4 py-2 max-w-xs rounded-t-xl rounded-br-xl shadow-sm">
+                <div className="chat-bubble-assistant bg-card text-card-foreground px-4 py-2 max-w-xs rounded-t-xl rounded-br-xl shadow-md border border-border">
                   <ChatMessageContent content={message.content} />
                 </div>
               )}
@@ -183,11 +183,11 @@ const ChatInterface = () => {
           {/* Loading state for chat */}
           {isLoading && (
             <div className="chat-message assistant-message mb-4 flex">
-              <div className="chat-bubble-assistant bg-white text-neutral-800 px-4 py-3 rounded-t-xl rounded-br-xl shadow-sm flex items-center">
+              <div className="chat-bubble-assistant bg-card text-card-foreground px-4 py-3 rounded-t-xl rounded-br-xl shadow-md border border-border flex items-center">
                 <div className="flex gap-1">
-                  <div className="h-2 w-2 bg-neutral-300 rounded-full animate-pulse"></div>
-                  <div className="h-2 w-2 bg-neutral-300 rounded-full animate-pulse delay-100"></div>
-                  <div className="h-2 w-2 bg-neutral-300 rounded-full animate-pulse delay-200"></div>
+                  <div className="h-2 w-2 bg-primary/50 rounded-full animate-pulse"></div>
+                  <div className="h-2 w-2 bg-primary/50 rounded-full animate-pulse delay-100"></div>
+                  <div className="h-2 w-2 bg-primary/50 rounded-full animate-pulse delay-200"></div>
                 </div>
               </div>
             </div>
@@ -199,26 +199,26 @@ const ChatInterface = () => {
       </div>
       
       {/* Chat Input Area */}
-      <div className="p-4 border-t border-neutral-200 bg-white">
+      <div className="p-4 border-t border-border bg-card">
         <form className="max-w-lg mx-auto" onSubmit={handleSubmit}>
           <div className="relative">
             <Input
               type="text"
               placeholder="Ask about your calendar or schedule..."
-              className="w-full pl-4 pr-12 py-6 bg-neutral-50 border border-neutral-300 rounded-full focus:outline-none focus:ring-2 focus:ring-google-blue focus:border-transparent"
+              className="w-full pl-4 pr-12 py-6 bg-background border border-border rounded-full focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
               value={inputValue}
               onChange={(e) => setInputValue(e.target.value)}
               disabled={isLoading}
             />
             <Button 
               type="submit" 
-              className="absolute right-2 top-1/2 transform -translate-y-1/2 w-8 h-8 flex items-center justify-center bg-google-blue text-white rounded-full disabled:opacity-50 disabled:bg-neutral-400"
+              className="absolute right-2 top-1/2 transform -translate-y-1/2 w-8 h-8 flex items-center justify-center bg-primary text-primary-foreground rounded-full disabled:opacity-50 disabled:bg-muted"
               disabled={!inputValue.trim() || isLoading}
             >
               <Send className="h-4 w-4" />
             </Button>
           </div>
-          <div className="mt-2 pl-4 text-xs text-neutral-500 flex items-center gap-1">
+          <div className="mt-2 pl-4 text-xs text-muted-foreground flex items-center gap-1">
             <Info className="h-3 w-3" />
             <span>Your data is processed securely and not stored permanently</span>
           </div>
@@ -235,7 +235,7 @@ const ChatMessageContent = ({ content }: { content: string }) => {
     return (
       <div>
         <p className="text-sm">{content.substring(0, content.indexOf("Subject:"))}</p>
-        <div className="mt-2 p-2 bg-neutral-50 rounded text-xs border border-neutral-200">
+        <div className="mt-2 p-2 bg-background rounded text-xs border border-border">
           {content.substring(content.indexOf("Subject:")).split("\n").map((line, i) => (
             <p key={i} className={i > 0 ? "mt-1" : ""}>
               {line}
@@ -256,7 +256,8 @@ const ChatMessageContent = ({ content }: { content: string }) => {
           if (part.startsWith("•") || part.startsWith("- ")) {
             return (
               <div key={index} className={index > 0 ? "mt-1" : ""}>
-                {part}
+                <span className="text-primary">{part.substring(0, 2)}</span>
+                {part.substring(2)}
               </div>
             );
           }

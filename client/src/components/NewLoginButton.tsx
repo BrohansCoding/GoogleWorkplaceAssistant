@@ -138,20 +138,20 @@ const NewLoginButton = () => {
   };
   
   return (
-    <div className="flex flex-col items-center justify-center h-screen bg-neutral-50">
+    <div className="flex flex-col items-center justify-center h-screen bg-background">
       <div className="text-center p-8 max-w-md">
-        <h1 className="text-3xl font-bold mb-2 text-neutral-900">Calendar Agent</h1>
-        <p className="text-neutral-700 mb-8">
+        <h1 className="text-3xl font-bold mb-2 text-foreground">Calendar Agent</h1>
+        <p className="text-muted-foreground mb-8">
           Your intelligent assistant for Google Calendar management
         </p>
         
-        <div className="w-64 h-64 mx-auto mb-8 rounded-full bg-neutral-100 flex items-center justify-center">
-          <CalendarIcon className="h-24 w-24 text-google-blue" />
+        <div className="w-64 h-64 mx-auto mb-8 rounded-full bg-card flex items-center justify-center border border-border shadow-lg">
+          <CalendarIcon className="h-24 w-24 text-primary" />
         </div>
         
         <Button
           variant="outline" 
-          className="flex items-center justify-center gap-2 px-6 py-6 bg-white border border-neutral-300 rounded-md shadow-sm hover:shadow-md transition duration-200 w-full max-w-xs mx-auto"
+          className="flex items-center justify-center gap-2 px-6 py-6 bg-card/50 border border-border rounded-md shadow-md hover:shadow-lg transition duration-200 w-full max-w-xs mx-auto hover:bg-primary hover:text-primary-foreground"
           onClick={handleLogin}
           disabled={isLoading}
         >
@@ -160,12 +160,12 @@ const NewLoginButton = () => {
             alt="Google logo" 
             className="w-5 h-5" 
           />
-          <span className="text-neutral-800 font-medium">
+          <span className="font-medium">
             {isLoading ? "Signing in..." : "Sign in with Google"}
           </span>
         </Button>
         
-        <p className="mt-6 text-sm text-neutral-600">
+        <p className="mt-6 text-sm text-muted-foreground">
           We'll access your Google Calendar to provide personalized assistance
         </p>
       </div>

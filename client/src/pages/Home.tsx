@@ -15,10 +15,6 @@ const Home = () => {
   // Get mobile state safely
   const isMobile = mobileContext?.isMobile || false;
   
-  // If mobile, show only active view
-  const showCalendar = !isMobile || activeView === "calendar";
-  const showChat = !isMobile || activeView === "chat";
-  
   console.log("Home: User authenticated, showing main app", user?.uid);
   
   return (
@@ -26,14 +22,27 @@ const Home = () => {
       <Header activeView={activeView} setActiveView={setActiveView} />
       
       <main className="flex flex-1 overflow-hidden">
-        {showCalendar && (
-          <div className={`${isMobile ? "w-full" : "w-1/2 lg:w-3/5"} h-full`}>
+        {/* Always show both calendar and chat side by side on desktop */}
+        {!isMobile && (
+          <>
+            <div className="w-3/5 h-full border-r border-border">
+              <CalendarView />
+            </div>
+            <div className="w-2/5 h-full">
+              <ChatInterface />
+            </div>
+          </>
+        )}
+        
+        {/* On mobile, show only the active view */}
+        {isMobile && activeView === "calendar" && (
+          <div className="w-full h-full">
             <CalendarView />
           </div>
         )}
         
-        {showChat && (
-          <div className={`${isMobile ? "w-full" : "w-1/2 lg:w-2/5"} h-full`}>
+        {isMobile && activeView === "chat" && (
+          <div className="w-full h-full">
             <ChatInterface />
           </div>
         )}
@@ -41,14 +50,14 @@ const Home = () => {
       
       {/* Mobile Navigation */}
       {isMobile && (
-        <div className="border-t border-neutral-200 bg-white">
+        <div className="border-t border-border bg-card">
           <div className="flex justify-around">
             <Button
               variant="ghost"
               className={`flex flex-col items-center py-2 px-4 ${
                 activeView === "calendar" 
-                  ? "text-google-blue border-t-2 border-google-blue -mt-[2px]" 
-                  : "text-neutral-600"
+                  ? "text-primary border-t-2 border-primary -mt-[2px]" 
+                  : "text-muted-foreground"
               }`}
               onClick={() => setActiveView("calendar")}
             >
@@ -59,8 +68,8 @@ const Home = () => {
               variant="ghost"
               className={`flex flex-col items-center py-2 px-4 ${
                 activeView === "chat" 
-                  ? "text-google-blue border-t-2 border-google-blue -mt-[2px]" 
-                  : "text-neutral-600"
+                  ? "text-primary border-t-2 border-primary -mt-[2px]" 
+                  : "text-muted-foreground"
               }`}
               onClick={() => setActiveView("chat")}
             >
