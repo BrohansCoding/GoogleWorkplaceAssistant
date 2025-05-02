@@ -45,11 +45,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { timeMin, timeMax } = req.query;
       const token = req.session.googleToken;
       
+      console.log("Calendar API request received:");
+      console.log("- Token available:", !!token);
+      console.log("- Query params:", { timeMin, timeMax });
+      
       if (!token) {
         return res.status(401).json({ message: "Authentication required" });
       }
       
       // Fetch events from Google Calendar API
+      console.log("Fetching events from Google Calendar API...");
       const response = await axios.get("https://www.googleapis.com/calendar/v3/calendars/primary/events", {
         headers: {
           Authorization: `Bearer ${token}`,
@@ -59,30 +64,50 @@ export async function registerRoutes(app: Express): Promise<Server> {
           timeMax: timeMax || new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
           singleEvents: true,
           orderBy: "startTime",
+          maxResults: 100
         },
       });
+      
+      console.log(`Retrieved ${response.data.items?.length || 0} events`);
+      
+      // Handle empty response
+      if (!response.data.items || response.data.items.length === 0) {
+        console.log("No events found in the specified time range");
+        return res.status(200).json({ events: [] });
+      }
       
       // Transform events to our format
       const events = response.data.items.map((event: any) => ({
         id: event.id,
         summary: event.summary || "Untitled Event",
-        description: event.description,
-        location: event.location,
+        description: event.description || "",
+        location: event.location || "",
         start: event.start,
         end: event.end,
-        attendees: event.attendees,
-        colorId: event.colorId,
+        attendees: event.attendees || [],
+        colorId: event.colorId || "0",
       }));
       
+      console.log(`Successfully processed ${events.length} events`);
       return res.status(200).json({ events });
     } catch (error) {
       console.error("Error fetching calendar events:", error);
       
-      if (axios.isAxiosError(error) && error.response?.status === 401) {
-        return res.status(401).json({ message: "Google Calendar token expired" });
+      if (axios.isAxiosError(error)) {
+        console.error("Axios error details:", {
+          status: error.response?.status,
+          data: error.response?.data
+        });
+        
+        if (error.response?.status === 401) {
+          return res.status(401).json({ message: "Google Calendar token expired" });
+        }
       }
       
-      return res.status(500).json({ message: "Failed to fetch calendar events" });
+      return res.status(500).json({ 
+        message: "Failed to fetch calendar events",
+        error: error.message
+      });
     }
   });
   

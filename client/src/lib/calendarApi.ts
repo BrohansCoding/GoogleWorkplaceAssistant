@@ -6,8 +6,8 @@ export const fetchCalendarEvents = async (date: Date): Promise<CalendarEventType
   const startDate = startOfDay(date);
   const endDate = endOfDay(date);
   
-  const formattedStartDate = format(startDate, "yyyy-MM-dd'T'HH:mm:ss'Z'");
-  const formattedEndDate = format(endDate, "yyyy-MM-dd'T'HH:mm:ss'Z'");
+  const formattedStartDate = encodeURIComponent(startDate.toISOString());
+  const formattedEndDate = encodeURIComponent(endDate.toISOString());
   
   try {
     const response = await fetch(
@@ -39,8 +39,8 @@ export const fetchCalendarEventsRange = async (
   startDate: Date,
   endDate: Date
 ): Promise<CalendarEventType[]> => {
-  const formattedStartDate = format(startDate, "yyyy-MM-dd'T'HH:mm:ss'Z'");
-  const formattedEndDate = format(endDate, "yyyy-MM-dd'T'HH:mm:ss'Z'");
+  const formattedStartDate = encodeURIComponent(startDate.toISOString());
+  const formattedEndDate = encodeURIComponent(endDate.toISOString());
   
   try {
     const response = await fetch(
