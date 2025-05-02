@@ -6,8 +6,9 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import NotFound from "@/pages/not-found";
 import Home from "@/pages/Home";
 import { useContext } from "react";
-import { AuthContext } from "@/components/AuthProvider";
-import LoginButton from "@/components/LoginButton";
+import { AuthContext } from "@/components/SimpleAuthProvider";
+import NewLoginButton from "@/components/NewLoginButton";
+import SimpleAuthProvider from "@/components/SimpleAuthProvider";
 
 function Router() {
   // Get authentication state from context
@@ -17,7 +18,7 @@ function Router() {
   
   // If no user, show login
   if (!user) {
-    return <LoginButton />;
+    return <NewLoginButton />;
   }
   
   // If authenticated, show the app
@@ -32,10 +33,12 @@ function Router() {
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
-      <TooltipProvider>
-        <Toaster />
-        <Router />
-      </TooltipProvider>
+      <SimpleAuthProvider>
+        <TooltipProvider>
+          <Toaster />
+          <Router />
+        </TooltipProvider>
+      </SimpleAuthProvider>
     </QueryClientProvider>
   );
 }
