@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { CalendarIcon } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { getAuth, signInWithPopup, GoogleAuthProvider } from "firebase/auth";
+import { getAuth, signInWithPopup, GoogleAuthProvider, getIdToken } from "firebase/auth";
 import { app } from "@/lib/firebase-setup";
 
 const NewLoginButton = () => {
@@ -17,15 +17,28 @@ const NewLoginButton = () => {
       const auth = getAuth(app);
       const provider = new GoogleAuthProvider();
       provider.addScope('https://www.googleapis.com/auth/calendar.readonly');
+      provider.addScope('profile');
+      provider.addScope('email');
       
       const result = await signInWithPopup(auth, provider);
       console.log("Sign in successful!", result.user.displayName);
       
-      // Get the token for server-side API calls
+      // Try to get token directly from the credential result first
       const credential = GoogleAuthProvider.credentialFromResult(result);
-      const token = credential?.accessToken;
+      let token = credential?.accessToken;
       
-      console.log("Retrieved access token:", token ? "Token received" : "No token");
+      // If no token from credential, get a fresh ID token directly 
+      if (!token && result.user) {
+        console.log("No access token from credential, getting fresh ID token...");
+        try {
+          token = await getIdToken(result.user, true);
+          console.log("Got fresh ID token");
+        } catch (tokenError) {
+          console.error("Error getting ID token:", tokenError);
+        }
+      }
+      
+      console.log("Retrieved token:", token ? "Token received" : "No token");
       
       if (token) {
         // Send token to server
@@ -50,6 +63,8 @@ const NewLoginButton = () => {
         }
         
         console.log("Server authentication successful");
+      } else {
+        console.warn("No token available after sign-in, some features may not work");
       }
       
       toast({

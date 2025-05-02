@@ -1,5 +1,87 @@
 import { CalendarEventType } from '@shared/schema';
 import { format, startOfDay, endOfDay, addDays, parseISO } from 'date-fns';
+import { auth } from '@/lib/firebase-setup';
+import { getIdToken } from 'firebase/auth';
+
+// Internal function for handling token refresh if needed
+const makeCalendarRequest = async (url: string): Promise<any> => {
+  try {
+    const response = await fetch(url, {
+      method: 'GET',
+      credentials: 'include',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
+    
+    // If unauthorized and user is logged in, try to refresh the token and retry
+    if (response.status === 401 && auth.currentUser) {
+      const responseData = await response.json();
+      
+      // Only attempt refresh if token expired (not if other auth issues)
+      if (responseData.code === 'TOKEN_EXPIRED' || responseData.code === 'TOKEN_MISSING') {
+        console.log('Token expired, refreshing...');
+        
+        try {
+          // Get a fresh ID token from Firebase
+          const newToken = await getIdToken(auth.currentUser, true);
+          
+          // Send the refreshed token to our backend
+          const tokenResponse = await fetch('/api/auth/token', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ 
+              token: newToken, 
+              user: {
+                uid: auth.currentUser.uid,
+                displayName: auth.currentUser.displayName,
+                email: auth.currentUser.email,
+                photoURL: auth.currentUser.photoURL
+              }
+            }),
+            credentials: 'include'
+          });
+          
+          if (!tokenResponse.ok) {
+            throw new Error('Failed to refresh token on server');
+          }
+          
+          // Retry the original request now that we have a fresh token
+          console.log('Token refreshed, retrying request...');
+          const retryResponse = await fetch(url, {
+            method: 'GET',
+            credentials: 'include',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+          });
+          
+          if (!retryResponse.ok) {
+            throw new Error(`Retry failed: ${retryResponse.status}`);
+          }
+          
+          return await retryResponse.json();
+        } catch (refreshError) {
+          console.error('Error refreshing token:', refreshError);
+          throw new Error('Failed to refresh authentication');
+        }
+      }
+      
+      // If it's not a token issue or refresh failed
+      throw new Error(`Authentication required: ${responseData.message}`);
+    }
+    
+    // For non-401 errors
+    if (!response.ok) {
+      throw new Error(`Request failed: ${response.status}`);
+    }
+    
+    return await response.json();
+  } catch (error) {
+    console.error('Calendar API request error:', error);
+    throw error;
+  }
+};
 
 // Fetch calendar events from Google Calendar API through our backend proxy
 export const fetchCalendarEvents = async (date: Date): Promise<CalendarEventType[]> => {
@@ -10,24 +92,9 @@ export const fetchCalendarEvents = async (date: Date): Promise<CalendarEventType
   const formattedEndDate = encodeURIComponent(endDate.toISOString());
   
   try {
-    const response = await fetch(
-      `/api/calendar/events?timeMin=${formattedStartDate}&timeMax=${formattedEndDate}`,
-      {
-        method: 'GET',
-        credentials: 'include',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      }
-    );
-    
-    if (!response.ok) {
-      throw new Error(`Failed to fetch calendar events: ${response.status}`);
-    }
-    
-    const data = await response.json();
+    const url = `/api/calendar/events?timeMin=${formattedStartDate}&timeMax=${formattedEndDate}`;
+    const data = await makeCalendarRequest(url);
     return data.events;
-    
   } catch (error) {
     console.error('Error fetching calendar events:', error);
     throw error;
@@ -43,24 +110,9 @@ export const fetchCalendarEventsRange = async (
   const formattedEndDate = encodeURIComponent(endDate.toISOString());
   
   try {
-    const response = await fetch(
-      `/api/calendar/events?timeMin=${formattedStartDate}&timeMax=${formattedEndDate}`,
-      {
-        method: 'GET',
-        credentials: 'include',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      }
-    );
-    
-    if (!response.ok) {
-      throw new Error(`Failed to fetch calendar events range: ${response.status}`);
-    }
-    
-    const data = await response.json();
+    const url = `/api/calendar/events?timeMin=${formattedStartDate}&timeMax=${formattedEndDate}`;
+    const data = await makeCalendarRequest(url);
     return data.events;
-    
   } catch (error) {
     console.error('Error fetching calendar events range:', error);
     throw error;

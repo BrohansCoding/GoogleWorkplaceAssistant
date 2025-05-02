@@ -5,6 +5,7 @@ import {
   GoogleAuthProvider, 
   signOut as firebaseSignOut,
   onAuthStateChanged,
+  getIdToken,
   User
 } from "firebase/auth";
 import { auth } from "./firebase-setup";
@@ -13,6 +14,10 @@ import { auth } from "./firebase-setup";
 const googleProvider = new GoogleAuthProvider();
 // Request Google Calendar scope during sign-in
 googleProvider.addScope('https://www.googleapis.com/auth/calendar.readonly');
+// Add additional scopes if needed for your app
+// For example, if you need access to profile info:
+googleProvider.addScope('profile');
+googleProvider.addScope('email');
 
 // Check for redirect result on page load
 export const checkRedirectResult = async () => {
@@ -33,11 +38,22 @@ export const checkRedirectResult = async () => {
       return null;
     }
     
-    // This gives you a Google Access Token
+    // Try to get token directly from the credential first
     const credential = GoogleAuthProvider.credentialFromResult(result);
-    const token = credential?.accessToken;
+    let token = credential?.accessToken;
     console.log("Got credential:", credential ? "YES" : "NO");
-    console.log("Got token:", token ? "YES" : "NO");
+    console.log("Got token from credential:", token ? "YES" : "NO");
+    
+    // If no token from credential, get a fresh ID token directly 
+    if (!token && result.user) {
+      console.log("No access token from credential, getting fresh ID token...");
+      try {
+        token = await getIdToken(result.user, true);
+        console.log("Got fresh ID token");
+      } catch (tokenError) {
+        console.error("Error getting ID token:", tokenError);
+      }
+    }
     
     // Pass token to server to store or use for API calls
     if (token) {
@@ -61,6 +77,8 @@ export const checkRedirectResult = async () => {
         console.error("Error sending token to server:", serverError);
         // Continue anyway - we'll handle auth client-side
       }
+    } else {
+      console.warn("No token available after redirect auth, some features may not work");
     }
     
     console.log("Authentication successful, returning user");
@@ -81,9 +99,20 @@ export const signInWithGoogle = async () => {
     const result = await signInWithPopup(auth, googleProvider);
     console.log("Sign in with popup successful:", result.user.displayName);
     
-    // Get the credential
+    // Try to get token directly from the credential first
     const credential = GoogleAuthProvider.credentialFromResult(result);
-    const token = credential?.accessToken;
+    let token = credential?.accessToken;
+    
+    // If no token from credential, get a fresh ID token directly 
+    if (!token && result.user) {
+      console.log("No access token from credential, getting fresh ID token...");
+      try {
+        token = await getIdToken(result.user, true);
+        console.log("Got fresh ID token");
+      } catch (tokenError) {
+        console.error("Error getting ID token:", tokenError);
+      }
+    }
     
     // Send token to server
     if (token) {
@@ -112,6 +141,8 @@ export const signInWithGoogle = async () => {
       } catch (err) {
         console.error("Error sending token to server:", err);
       }
+    } else {
+      console.warn("No token available after sign-in, some features may not work");
     }
     
     return { success: true, user: result.user };
