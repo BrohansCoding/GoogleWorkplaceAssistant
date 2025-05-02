@@ -22,8 +22,11 @@ const Home = () => {
   
   // If user is not authenticated, show login screen
   if (!authContext || !authContext.user) {
+    console.log("Home: No authenticated user, showing login screen");
     return <LoginScreen />;
   }
+  
+  console.log("Home: User authenticated, showing main app", authContext.user.uid);
   
   return (
     <div className="h-screen flex flex-col">

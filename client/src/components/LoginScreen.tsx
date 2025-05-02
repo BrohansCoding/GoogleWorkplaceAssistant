@@ -14,10 +14,13 @@ const LoginScreen = () => {
 
   const handleLogin = async () => {
     try {
+      console.log("LoginScreen: Starting Google sign-in process");
       setIsLoading(true);
       // This will redirect to Google
       await firebaseSignInWithGoogle();
-      // The rest will happen after redirect in the useEffect
+      
+      // Note: Code after this point won't run until after redirect back from Google
+      console.log("LoginScreen: This line won't run until after redirect");
     } catch (error) {
       console.error("Login failed:", error);
       toast({
