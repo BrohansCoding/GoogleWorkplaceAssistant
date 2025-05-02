@@ -28,10 +28,10 @@ const Home = () => {
           {/* Render the active view */}
           {activeView === "calendar" && (
             <div className="grid h-full grid-cols-1 lg:grid-cols-4">
-              <div className="lg:col-span-3 h-full overflow-hidden border-r border-gray-700">
+              <div className="lg:col-span-3 h-full overflow-auto border-r border-gray-700">
                 <CalendarView />
               </div>
-              <div className="hidden lg:block lg:col-span-1 h-full overflow-hidden">
+              <div className="hidden lg:block lg:col-span-1 h-full overflow-hidden sticky top-0 right-0">
                 <ChatInterface />
               </div>
             </div>

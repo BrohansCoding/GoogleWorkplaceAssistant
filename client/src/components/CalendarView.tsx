@@ -127,7 +127,7 @@ const CalendarView = () => {
   };
 
   return (
-    <section className="w-full h-full overflow-y-auto bg-gray-900">
+    <section className="w-full h-full bg-gray-900">
       <div className="p-4">
         {/* Calendar Header */}
         <div className="flex items-center justify-between mb-6">
