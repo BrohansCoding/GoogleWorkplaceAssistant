@@ -9,6 +9,7 @@ import { useContext } from "react";
 import { AuthContext } from "@/components/SimpleAuthProvider";
 import NewLoginButton from "@/components/NewLoginButton";
 import SimpleAuthProvider from "@/components/SimpleAuthProvider";
+import { CalendarProvider } from "@/context/CalendarContext";
 
 function Router() {
   // Get authentication state from context
@@ -34,10 +35,12 @@ function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <SimpleAuthProvider>
-        <TooltipProvider>
-          <Toaster />
-          <Router />
-        </TooltipProvider>
+        <CalendarProvider>
+          <TooltipProvider>
+            <Toaster />
+            <Router />
+          </TooltipProvider>
+        </CalendarProvider>
       </SimpleAuthProvider>
     </QueryClientProvider>
   );
