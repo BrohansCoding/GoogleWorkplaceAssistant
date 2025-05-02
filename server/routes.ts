@@ -21,6 +21,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         console.log("Storing user and token in session");
         (req.session as any).user = user;
         (req.session as any).googleToken = token;
+        (req.session as any).tokenTimestamp = Date.now(); // Track token age
         
         // Verify storage
         console.log("Verifying token storage, token exists:", !!(req.session as any).googleToken);
@@ -38,6 +39,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
+  // Endpoint for token refreshing
+  app.post("/api/auth/token", async (req: Request, res: Response) => {
+    try {
+      const { token, user } = req.body;
+      
+      if (!token || !user || !user.uid) {
+        return res.status(400).json({ message: "Invalid request. Token and user data required." });
+      }
+      
+      if (req.session) {
+        // Update token in session
+        console.log("Updating token in session");
+        (req.session as any).googleToken = token;
+        (req.session as any).tokenTimestamp = Date.now(); // Track token age
+        
+        return res.status(200).json({ message: "Token updated successfully" });
+      } else {
+        console.log("Session object not available for token update");
+        return res.status(500).json({ message: "Session not available" });
+      }
+    } catch (error) {
+      console.error("Error updating token:", error);
+      return res.status(500).json({ message: "Failed to update token" });
+    }
+  });
+  
   app.post("/api/auth/signout", (req: Request, res: Response) => {
     req.session.destroy((err) => {
       if (err) {
@@ -52,8 +79,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/calendar/events", async (req: Request, res: Response) => {
     try {
       const { timeMin, timeMax } = req.query;
+      
       // Get token from session, handle possible TS errors with type assertion
       const token = (req.session as any)?.googleToken as string | undefined;
+      const tokenTimestamp = (req.session as any)?.tokenTimestamp as number | undefined;
       
       // Log session information for debugging
       console.log("Session object:", req.session ? "exists" : "missing");
@@ -61,10 +90,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       console.log("Calendar API request received:");
       console.log("- Token available:", !!token);
+      console.log("- Token age (minutes):", tokenTimestamp ? Math.floor((Date.now() - tokenTimestamp) / (1000 * 60)) : "unknown");
       console.log("- Query params:", { timeMin, timeMax });
       
       if (!token) {
-        return res.status(401).json({ message: "Authentication required" });
+        return res.status(401).json({ message: "Authentication required", code: "TOKEN_MISSING" });
+      }
+      
+      // Check if token is likely expired (tokens typically last 60 minutes)
+      if (tokenTimestamp && (Date.now() - tokenTimestamp) > 55 * 60 * 1000) { // 55 min threshold
+        console.log("Token appears to be expired or close to expiration");
+        return res.status(401).json({ message: "Token needs refresh", code: "TOKEN_EXPIRED" });
       }
       
       // Fetch events from Google Calendar API
@@ -114,7 +150,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
         
         if (error.response?.status === 401) {
-          return res.status(401).json({ message: "Google Calendar token expired" });
+          return res.status(401).json({ 
+            message: "Google Calendar token expired", 
+            code: "TOKEN_EXPIRED"
+          });
         }
       }
       
