@@ -59,7 +59,7 @@ const SimpleLogin = () => {
       <div className="text-center p-8 max-w-md backdrop-blur-sm bg-gray-800/70 rounded-2xl shadow-lg border border-gray-700">
         <h1 className="text-4xl font-bold mb-2 text-white">G Assistant</h1>
         <p className="text-gray-300 mb-4">
-          Your intelligent assistant for productivity and organization
+          Your intelligent assistant for productivity and calendar management
         </p>
         
         {authMessage && (
@@ -129,6 +129,9 @@ const SimpleLogin = () => {
         
         <p className="mt-6 text-sm text-gray-400">
           We'll help you manage your Calendar, Folders, and Email more efficiently
+        </p>
+        <p className="mt-2 text-xs text-blue-400/80">
+          Note: Signing in will request access to view and modify your Google Calendar
         </p>
       </div>
     </div>

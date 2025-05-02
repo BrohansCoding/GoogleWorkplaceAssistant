@@ -83,19 +83,11 @@ export const clearOAuthToken = () => {
 const createGoogleProvider = () => {
   const provider = new GoogleAuthProvider();
   
-  // Check if we need calendar write permission
-  const needsWrite = window.localStorage.getItem('NEED_CALENDAR_WRITE') === 'true';
-  
-  if (needsWrite) {
-    console.log('Creating Google provider with WRITE permissions for calendar...');
-    // CRITICAL: These are the EXACT scopes needed for Google Calendar API with write access
-    provider.addScope('https://www.googleapis.com/auth/calendar');           // Full access to Calendar
-    provider.addScope('https://www.googleapis.com/auth/calendar.events');    // Full access to Events
-  } else {
-    console.log('Creating Google provider with READ-ONLY permissions for calendar...');
-    // Only request read-only permissions for initial login
-    provider.addScope('https://www.googleapis.com/auth/calendar.readonly');  // Read-only access
-  }
+  // ALWAYS request full access to calendars to avoid re-authentication later
+  // These are the EXACT scopes needed for Google Calendar API with write access
+  console.log('Creating Google provider with FULL permissions for calendar...');
+  provider.addScope('https://www.googleapis.com/auth/calendar');           // Full access to Calendar
+  provider.addScope('https://www.googleapis.com/auth/calendar.events');    // Full access to Events
   
   // Always include these basic scopes
   provider.addScope('profile');
