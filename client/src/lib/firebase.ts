@@ -90,7 +90,7 @@ export const checkRedirectResult = async () => {
 };
 
 // Sign in with Google
-export const signInWithGoogle = async () => {
+export const signInWithGoogle = async (): Promise<{ success: boolean; user?: User }> => {
   try {
     console.log("Starting Google sign-in with redirect...");
     console.log("Current URL:", window.location.href);

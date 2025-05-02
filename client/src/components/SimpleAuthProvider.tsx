@@ -6,12 +6,14 @@ import { app } from "@/lib/firebase-setup";
 export type AuthContextType = {
   user: User | null;
   isLoading: boolean;
+  setUser: (user: User | null) => void;
 };
 
 // Create the AuthContext with default values
 export const AuthContext = createContext<AuthContextType>({
   user: null,
-  isLoading: true
+  isLoading: true,
+  setUser: () => {} // Dummy function for default value
 });
 
 // Props for the AuthProvider component
@@ -46,7 +48,7 @@ export const SimpleAuthProvider = ({ children }: AuthProviderProps) => {
   
   // Provide the auth context to children
   return (
-    <AuthContext.Provider value={{ user, isLoading }}>
+    <AuthContext.Provider value={{ user, isLoading, setUser }}>
       {children}
     </AuthContext.Provider>
   );

@@ -17,13 +17,23 @@ export const useAuth = () => {
   const signInWithGoogle = useCallback(async () => {
     try {
       setIsLoading(true);
-      const { user } = await firebaseSignInWithGoogle();
-      setUser(user);
-      toast({
-        title: "Successfully signed in",
-        description: `Welcome, ${user.displayName || "user"}!`,
-      });
-      return user;
+      const result = await firebaseSignInWithGoogle();
+      if (result.user) {
+        setUser(result.user);
+        toast({
+          title: "Successfully signed in",
+          description: `Welcome, ${result.user.displayName || "user"}!`,
+        });
+        return result.user;
+      } else {
+        console.warn("Sign in returned without user");
+        toast({
+          title: "Sign in incomplete",
+          description: "Please try again.",
+          variant: "destructive",
+        });
+        return null;
+      }
     } catch (error) {
       console.error("Error signing in with Google:", error);
       toast({
