@@ -27,8 +27,9 @@ export async function getGroqCompletion(
           },
           ...messages,
         ],
-        temperature: 0.7,
-        max_tokens: 1024,
+        temperature: 0.6, // Slightly lower temperature for more focused responses
+        max_tokens: 800, // Reduced max tokens to encourage conciseness
+        top_p: 0.9, // More focused sampling
       },
       {
         headers: {

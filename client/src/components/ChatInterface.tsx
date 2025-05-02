@@ -257,22 +257,34 @@ const ChatMessageContent = ({ content }: { content: string }) => {
     );
   }
   
-  // Check if content has bullet points
-  if (content.includes("•") || content.includes("- ")) {
-    const parts = content.split(/(?=•)|(?=- )/);
+  // Check for different types of bullet points and list markers
+  const hasBulletPoints = /(?:^|\n)[\s]*[•\-\*\+][\s]/m.test(content);
+  
+  if (hasBulletPoints) {
+    // Split content into paragraphs and bullets
+    const lines = content.split('\n');
+    const bulletRegex = /^[\s]*([•\-\*\+][\s])(.+)$/;
     
     return (
       <div className="text-sm">
-        {parts.map((part, index) => {
-          if (part.startsWith("•") || part.startsWith("- ")) {
+        {lines.map((line, index) => {
+          const bulletMatch = line.match(bulletRegex);
+          
+          if (bulletMatch) {
+            // This is a bullet point line
             return (
-              <div key={index} className={index > 0 ? "mt-1" : ""}>
-                <span className="text-primary">{part.substring(0, 2)}</span>
-                {part.substring(2)}
+              <div key={index} className="flex items-start mt-1">
+                <span className="text-primary mr-1">{bulletMatch[1].trim()}</span>
+                <span>{bulletMatch[2]}</span>
               </div>
             );
+          } else if (line.trim() !== '') {
+            // Regular paragraph
+            return <p key={index} className={index > 0 ? "mt-2" : ""}>{line}</p>;
           }
-          return <p key={index} className={index > 0 ? "mt-2" : ""}>{part}</p>;
+          
+          // Empty line - add some spacing
+          return <div key={index} className="h-1"></div>;
         })}
       </div>
     );

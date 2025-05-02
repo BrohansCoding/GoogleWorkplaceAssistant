@@ -546,6 +546,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       - Average meeting duration: ${Math.round(calendarSummary.stats.averageDuration)} minutes
       ` : ""}
       
+      IMPORTANT RULES:
+      1. If the user asks something completely unrelated to calendars, scheduling, time management, or productivity, respond with: "I'm a calendar assistant. I don't think I can answer that. But I'd love to help with anything about optimizing your schedule!"
+      2. Keep your responses clean, clear, and concise. Limit regular responses to 4 sentences maximum.
+      3. When providing time-related information or suggestions, format them as bullet points for easy readability.
+      4. Avoid technical jargon and unnecessary complexity in your responses.
+      
       Please provide helpful insights, suggestions, and responses based on the user's calendar data.`;
       
       // Get response from Groq
