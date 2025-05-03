@@ -1,18 +1,18 @@
-import { useState, useContext } from "react";
+import { useState, useContext, useEffect } from "react";
 import Header from "@/components/Header";
 import CalendarView from "@/components/CalendarView";
 import ChatInterface from "@/components/ChatInterface";
 import FoldersView from "@/components/FoldersView";
 import EmailView from "@/components/EmailView";
 import { Button } from "@/components/ui/button";
-import { CalendarIcon, MessageSquare, Folder, Mail, X } from "lucide-react";
+import { CalendarIcon, MessageSquare, Folder, Mail, X, ArrowRight, BrainCircuit, RocketIcon, SparklesIcon } from "lucide-react";
 import { AuthContext } from "@/components/SimpleAuthProvider";
 import { MobileContext } from "@/context/MobileContext";
 
 const Home = () => {
   const { user } = useContext(AuthContext);
   const mobileContext = useContext(MobileContext);
-  const [activeView, setActiveView] = useState<"calendar" | "folders" | "email">("calendar");
+  const [activeView, setActiveView] = useState<"calendar" | "folders" | "email" | "home">("home");
   const [showChat, setShowChat] = useState(true);
   
   // Get mobile state safely
@@ -20,14 +20,155 @@ const Home = () => {
   
   console.log("Router: rendering with user:", user ? user.uid : "not authenticated");
   
+  // Automatically go to home screen when loaded
+  useEffect(() => {
+    // Start on home screen if this is first load
+    if (activeView !== "home" && !user) {
+      setActiveView("home");
+    }
+  }, []);
+  
+  // Home screen with agent cards
+  const renderHomeScreen = () => (
+    <div className="flex flex-col items-center w-full h-full">
+      {/* Hero section */}
+      <div className="w-full bg-gradient-to-r from-blue-900/40 to-emerald-800/30 backdrop-blur p-8 md:p-16 flex flex-col items-center">
+        <BrainCircuit className="h-16 w-16 text-emerald-400 mb-4" />
+        <h1 className="text-3xl md:text-4xl font-bold text-white mb-2 text-center">Google Workspace Assistant</h1>
+        <p className="text-lg text-gray-300 max-w-2xl text-center">
+          Connect your Google Workspace and get AI-powered assistance for your calendar, files, and email
+        </p>
+        
+        <Button 
+          onClick={() => setActiveView("calendar")}
+          className="mt-8 bg-emerald-600 hover:bg-emerald-500 text-white px-8 py-4 text-lg rounded-full flex items-center gap-2"
+        >
+          Get Started <ArrowRight className="h-5 w-5" />
+        </Button>
+      </div>
+      
+      {/* Agent cards */}
+      <div className="container mx-auto px-4 py-16 grid grid-cols-1 md:grid-cols-3 gap-8">
+        {/* Calendar Assistant */}
+        <div className="bg-gray-800 border border-gray-700 rounded-xl overflow-hidden shadow-lg flex flex-col hover:border-emerald-600/50 hover:translate-y-[-4px] transition-all">
+          <div className="p-5 bg-gradient-to-b from-blue-900/30 to-transparent">
+            <div className="h-12 w-12 rounded-full bg-blue-700/50 flex items-center justify-center mb-4">
+              <CalendarIcon className="h-6 w-6 text-blue-300" />
+            </div>
+            <h2 className="text-xl font-bold text-white mb-2">Calendar Assistant</h2>
+            <p className="text-gray-400">
+              Schedule smarter with your intelligent calendar assistant. Get insights about your time usage and meeting patterns.
+            </p>
+          </div>
+          <div className="p-5 border-t border-gray-700 mt-auto">
+            <Button
+              onClick={() => setActiveView("calendar")} 
+              className="w-full justify-between group"
+              variant="outline"
+            >
+              <span>Explore Calendar</span>
+              <ArrowRight className="h-4 w-4 group-hover:translate-x-1 transition-transform" />
+            </Button>
+          </div>
+        </div>
+        
+        {/* Folders Assistant */}
+        <div className="bg-gray-800 border border-gray-700 rounded-xl overflow-hidden shadow-lg flex flex-col hover:border-emerald-600/50 hover:translate-y-[-4px] transition-all">
+          <div className="p-5 bg-gradient-to-b from-emerald-900/30 to-transparent">
+            <div className="h-12 w-12 rounded-full bg-emerald-700/50 flex items-center justify-center mb-4">
+              <Folder className="h-6 w-6 text-emerald-300" />
+            </div>
+            <h2 className="text-xl font-bold text-white mb-2">Drive Assistant</h2>
+            <p className="text-gray-400">
+              Chat with your Drive files and folders. Ask questions about your documents and get instant, intelligent answers.
+            </p>
+          </div>
+          <div className="p-5 border-t border-gray-700 mt-auto">
+            <Button
+              onClick={() => setActiveView("folders")} 
+              className="w-full justify-between group"
+              variant="outline"
+            >
+              <span>Explore Drive</span>
+              <ArrowRight className="h-4 w-4 group-hover:translate-x-1 transition-transform" />
+            </Button>
+          </div>
+        </div>
+        
+        {/* Email Assistant */}
+        <div className="bg-gray-800 border border-gray-700 rounded-xl overflow-hidden shadow-lg flex flex-col hover:border-emerald-600/50 hover:translate-y-[-4px] transition-all">
+          <div className="p-5 bg-gradient-to-b from-purple-900/30 to-transparent">
+            <div className="h-12 w-12 rounded-full bg-purple-700/50 flex items-center justify-center mb-4">
+              <Mail className="h-6 w-6 text-purple-300" />
+            </div>
+            <h2 className="text-xl font-bold text-white mb-2">Email Assistant</h2>
+            <p className="text-gray-400">
+              Let AI help manage your inbox. Summarize emails, draft responses, and categorize important messages.
+            </p>
+          </div>
+          <div className="p-5 border-t border-gray-700 mt-auto">
+            <Button
+              onClick={() => setActiveView("email")} 
+              className="w-full justify-between group"
+              variant="outline"
+            >
+              <span>Explore Email</span>
+              <ArrowRight className="h-4 w-4 group-hover:translate-x-1 transition-transform" />
+            </Button>
+          </div>
+        </div>
+      </div>
+      
+      {/* Features section */}
+      <div className="w-full bg-gray-900/80 py-12">
+        <div className="container mx-auto px-4">
+          <h2 className="text-2xl font-bold text-center text-white mb-12">Intelligent Workspace Features</h2>
+          
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+            <div className="flex flex-col items-center">
+              <div className="rounded-full bg-blue-900/30 p-3 mb-4">
+                <SparklesIcon className="h-6 w-6 text-blue-400" />
+              </div>
+              <h3 className="text-lg font-medium text-white mb-2">Smart Scheduling</h3>
+              <p className="text-gray-400 text-center">
+                AI-powered calendar analysis helps you optimize your schedule and find the best times for meetings.
+              </p>
+            </div>
+            
+            <div className="flex flex-col items-center">
+              <div className="rounded-full bg-emerald-900/30 p-3 mb-4">
+                <MessageSquare className="h-6 w-6 text-emerald-400" />
+              </div>
+              <h3 className="text-lg font-medium text-white mb-2">Document Chat</h3>
+              <p className="text-gray-400 text-center">
+                Ask questions about your files in natural language and get relevant answers from your documents.
+              </p>
+            </div>
+            
+            <div className="flex flex-col items-center">
+              <div className="rounded-full bg-purple-900/30 p-3 mb-4">
+                <RocketIcon className="h-6 w-6 text-purple-400" />
+              </div>
+              <h3 className="text-lg font-medium text-white mb-2">Productivity Boost</h3>
+              <p className="text-gray-400 text-center">
+                Save time with AI-powered assistants that help you work more efficiently across your Google Workspace.
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+  
   return (
     <div className="min-h-screen flex flex-col bg-gradient-to-br from-gray-900 to-gray-800">
-      <Header activeView={activeView} setActiveView={setActiveView} />
+      {activeView !== "home" && <Header activeView={activeView} setActiveView={setActiveView} />}
       
-      <main className="flex flex-1 overflow-hidden p-4">
-        {/* Main content area with calendar/folders/email views */}
-        <div className={`flex-grow h-full overflow-auto rounded-xl shadow-lg border border-gray-700 bg-gray-800/80 backdrop-blur-sm 
+      <main className="flex flex-1 overflow-hidden p-0">
+        {/* Main content area with different views */}
+        <div className={`flex-grow h-full overflow-auto ${activeView !== "home" ? "rounded-xl shadow-lg border border-gray-700 bg-gray-800/80 backdrop-blur-sm m-4" : ""} 
           ${activeView === "calendar" ? "mr-0 md:mr-[320px]" : "mr-0"}`}>
+          {activeView === "home" && renderHomeScreen()}
           {activeView === "calendar" && <CalendarView />}
           {activeView === "folders" && <FoldersView />}
           {activeView === "email" && <EmailView />}
@@ -83,7 +224,7 @@ const Home = () => {
       )}
       
       {/* Mobile Navigation */}
-      {isMobile && (
+      {isMobile && activeView !== "home" && (
         <div className="border-t border-gray-700 bg-gray-800/90 backdrop-blur-md">
           <div className="flex justify-around">
             <Button

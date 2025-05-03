@@ -1,7 +1,7 @@
 import { useContext } from "react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
-import { CalendarIcon, LogOut, Folder, Mail } from "lucide-react";
+import { CalendarIcon, LogOut, Folder, Mail, Home } from "lucide-react";
 import { MobileContext } from "@/context/MobileContext";
 import { AuthContext } from "@/components/SimpleAuthProvider";
 import { signOut as firebaseSignOut } from "@/lib/firebase";
