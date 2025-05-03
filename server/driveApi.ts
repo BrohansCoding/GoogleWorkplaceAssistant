@@ -34,6 +34,46 @@ export async function getGoogleDriveFileMetadata(fileId: string, accessToken: st
   }
 }
 
+// Function to fetch folder contents
+export async function getGoogleDriveFolderContents(folderId: string, accessToken: string) {
+  try {
+    console.log(`Fetching contents for folder: ${folderId}`);
+    
+    // Get the folder metadata first
+    const folderMetadata = await getGoogleDriveFileMetadata(folderId, accessToken);
+    
+    // Get the files in the folder
+    const filesResponse = await axios.get(
+      `https://www.googleapis.com/drive/v3/files?q='${folderId}' in parents&fields=files(id,name,mimeType,webViewLink,description,createdTime,modifiedTime,thumbnailLink)`,
+      {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+      }
+    );
+    
+    return {
+      folder: folderMetadata,
+      files: filesResponse.data.files
+    };
+  } catch (error) {
+    console.error("Error fetching Google Drive folder contents:", error);
+    if (axios.isAxiosError(error)) {
+      console.error("Google API error details:", {
+        status: error.response?.status,
+        data: error.response?.data
+      });
+      
+      if (error.response?.status === 401) {
+        throw new Error("Authentication token expired");
+      } else if (error.response?.status === 404) {
+        throw new Error("Folder not found or no access permission");
+      }
+    }
+    throw error;
+  }
+}
+
 // Function to fetch text content from a Google Docs file
 export async function getGoogleDocsContent(fileId: string, accessToken: string) {
   try {
@@ -158,8 +198,8 @@ export async function getGoogleDriveFileContent(fileId: string, mimeType: string
   }
 }
 
-// Extract file ID from a Google Drive URL
-export function extractFileIdFromUrl(url: string): string | null {
+// Extract file/folder ID from a Google Drive URL
+export function extractIdFromUrl(url: string): string | null {
   try {
     // Google Drive URL formats:
     // https://drive.google.com/file/d/{fileId}/view
@@ -167,34 +207,45 @@ export function extractFileIdFromUrl(url: string): string | null {
     // https://docs.google.com/document/d/{fileId}/edit
     // https://docs.google.com/spreadsheets/d/{fileId}/edit
     // https://docs.google.com/presentation/d/{fileId}/edit
+    // https://drive.google.com/drive/folders/{folderId}
     
-    let fileId: string | null = null;
+    let id: string | null = null;
     
+    // Handle folders
+    if (url.includes('/drive/folders/')) {
+      const match = url.match(/\/drive\/folders\/([^/?]+)/);
+      if (match && match[1]) {
+        id = match[1];
+      }
+    } 
     // Handle file/d/{fileId}/view format
-    if (url.includes('/file/d/')) {
+    else if (url.includes('/file/d/')) {
       const match = url.match(/\/file\/d\/([^/]+)/);
       if (match && match[1]) {
-        fileId = match[1];
+        id = match[1];
       }
     } 
     // Handle ?id= format
     else if (url.includes('?id=')) {
       const match = url.match(/[?&]id=([^&]+)/);
       if (match && match[1]) {
-        fileId = match[1];
+        id = match[1];
       }
     } 
     // Handle docs.google.com with document/spreadsheet/presentation format
     else if (url.includes('docs.google.com')) {
       const match = url.match(/\/d\/([^/]+)/);
       if (match && match[1]) {
-        fileId = match[1];
+        id = match[1];
       }
     }
     
-    return fileId;
+    return id;
   } catch (error) {
-    console.error("Error extracting file ID:", error);
+    console.error("Error extracting ID from URL:", error);
     return null;
   }
 }
+
+// Backward compatibility
+export const extractFileIdFromUrl = extractIdFromUrl;

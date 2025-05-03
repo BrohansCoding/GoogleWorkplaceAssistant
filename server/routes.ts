@@ -642,7 +642,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Fetch file metadata from Google Drive
       const metadata = await getGoogleDriveFileMetadata(fileId, token);
       
-      return res.status(200).json({ file: metadata });
+      return res.status(200).json({ 
+        item: {
+          ...metadata,
+          type: 'file'
+        } 
+      });
     } catch (error) {
       console.error("Error fetching Drive file metadata:", error);
       
@@ -672,12 +677,70 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
-  // Google Drive chat endpoint for file Q&A
-  app.post("/api/drive/chat", async (req: Request, res: Response) => {
+  // Google Drive folder metadata endpoint
+  app.get("/api/drive/folder", async (req: Request, res: Response) => {
     try {
-      const { messages, driveFileUrl } = req.body;
+      const { folderId } = req.query;
       
-      if (!messages || !Array.isArray(messages) || !driveFileUrl) {
+      if (!folderId || typeof folderId !== 'string') {
+        return res.status(400).json({ message: "Folder ID is required" });
+      }
+      
+      // Get token from session
+      const token = (req.session as any)?.googleApiToken || (req.session as any)?.googleToken as string | undefined;
+      
+      if (!token) {
+        return res.status(401).json({ 
+          message: "Authentication required",
+          code: "AUTH_REQUIRED"
+        });
+      }
+      
+      // Fetch folder metadata from Google Drive
+      const folderContents = await getGoogleDriveFolderContents(folderId, token);
+      
+      return res.status(200).json({ 
+        item: {
+          ...folderContents.folder,
+          type: 'folder',
+          files: folderContents.files
+        } 
+      });
+    } catch (error) {
+      console.error("Error fetching Drive folder metadata:", error);
+      
+      if (axios.isAxiosError(error)) {
+        console.error("Google API error details:", {
+          status: error.response?.status,
+          data: error.response?.data
+        });
+        
+        if (error.response?.status === 401) {
+          return res.status(401).json({ 
+            message: "Token expired", 
+            code: "TOKEN_EXPIRED"
+          });
+        } else if (error.response?.status === 404) {
+          return res.status(404).json({
+            message: "Folder not found or access denied",
+            code: "FOLDER_NOT_FOUND"
+          });
+        }
+      }
+      
+      return res.status(500).json({ 
+        message: "Failed to fetch folder metadata",
+        error: error instanceof Error ? error.message : String(error)
+      });
+    }
+  });
+  
+  // Google Drive chat endpoint for file Q&A
+  app.post("/api/drive/file/chat", async (req: Request, res: Response) => {
+    try {
+      const { messages, driveItemId } = req.body;
+      
+      if (!messages || !Array.isArray(messages) || !driveItemId) {
         return res.status(400).json({ message: "Invalid request format" });
       }
       
@@ -691,22 +754,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
       
-      // Extract file ID from URL
-      const fileId = extractFileIdFromUrl(driveFileUrl);
-      
-      if (!fileId) {
-        return res.status(400).json({ 
-          message: "Invalid Google Drive URL",
-          code: "INVALID_URL"
-        });
-      }
-      
       try {
         // Get file metadata
-        const metadata = await getGoogleDriveFileMetadata(fileId, token);
+        const metadata = await getGoogleDriveFileMetadata(driveItemId, token);
         
         // Get file content based on file type
-        const fileContent = await getGoogleDriveFileContent(fileId, metadata.mimeType, token);
+        const fileContent = await getGoogleDriveFileContent(driveItemId, metadata.mimeType, token);
         
         // Prepare document summary for the system message
         const documentSummary = `
@@ -764,6 +817,90 @@ ${fileContent.length > 8000 ? fileContent.substring(0, 8000) + "... [content tru
       }
     } catch (error) {
       console.error("Error processing Drive chat request:", error);
+      return res.status(500).json({ 
+        message: "Failed to process chat request",
+        error: error instanceof Error ? error.message : String(error)
+      });
+    }
+  });
+  
+  // Google Drive chat endpoint for folder Q&A
+  app.post("/api/drive/folder/chat", async (req: Request, res: Response) => {
+    try {
+      const { messages, driveItemId } = req.body;
+      
+      if (!messages || !Array.isArray(messages) || !driveItemId) {
+        return res.status(400).json({ message: "Invalid request format" });
+      }
+      
+      // Get token from session
+      const token = (req.session as any)?.googleApiToken || (req.session as any)?.googleToken as string | undefined;
+      
+      if (!token) {
+        return res.status(401).json({ 
+          message: "Authentication required",
+          code: "AUTH_REQUIRED"
+        });
+      }
+      
+      try {
+        // Get folder contents
+        const folderData = await getGoogleDriveFolderContents(driveItemId, token);
+        
+        // Prepare folder summary for the system message
+        const folderSummary = `
+Folder Name: ${folderData.folder.name}
+Last Modified: ${folderData.folder.modifiedTime}
+Total Files: ${folderData.files.length}
+
+Files in folder:
+${folderData.files.map((file, index) => `${index + 1}. ${file.name} (${file.mimeType})`).join('\n')}
+`;
+
+        // Create system message with folder context
+        const systemMessage = `You are a helpful Folder Assistant that helps users analyze and understand the contents of their Google Drive folders.
+        
+        Current Folder:
+        ${folderSummary}
+        
+        IMPORTANT RULES:
+        1. You are specifically designed to help with questions about the folder and its contents.
+        2. Always reference the folder information when answering questions about it.
+        3. If the user asks something completely unrelated to the folder or Drive files, respond with: "I'm a Folder Assistant designed to help with your Google Drive folders. Please ask me questions about the current folder."
+        4. Keep your responses concise and focused on the folder contents.
+        5. When the user asks about specific files in the folder, provide information about those files.
+        6. If asked about something not in the folder, clearly state that the item is not present in the folder.
+        7. Format your responses clearly with sections and bullet points when appropriate.
+        8. Never make up information that isn't in the folder contents.
+        9. If the user asks for more details about a specific file, suggest they connect to that file directly for more information.
+        
+        Please provide helpful insights, information, and responses based on the folder contents.`;
+        
+        // Get response from Groq
+        const assistantResponse = await getGroqCompletion(systemMessage, messages);
+        
+        return res.status(200).json({ response: assistantResponse });
+      } catch (driveError) {
+        console.error("Error processing Drive folder:", driveError);
+        
+        if (axios.isAxiosError(driveError)) {
+          if (driveError.response?.status === 401) {
+            return res.status(401).json({ 
+              message: "Google Drive access token expired", 
+              code: "TOKEN_EXPIRED"
+            });
+          } else if (driveError.response?.status === 404 || driveError.response?.status === 403) {
+            return res.status(403).json({
+              message: "Folder not found or insufficient permissions",
+              code: "ACCESS_DENIED"
+            });
+          }
+        }
+        
+        throw driveError;
+      }
+    } catch (error) {
+      console.error("Error processing Drive folder chat request:", error);
       return res.status(500).json({ 
         message: "Failed to process chat request",
         error: error instanceof Error ? error.message : String(error)

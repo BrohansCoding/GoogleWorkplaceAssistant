@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, FormEvent } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Bot, Trash, Send, ExternalLink, FileText } from "lucide-react";
+import { Bot, Trash, Send } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 // Chat message interface
@@ -12,11 +12,12 @@ interface ChatMessageType {
   timestamp?: Date;
 }
 
-// Define interface for file metadata
-interface DriveFileMetadata {
+// Define interface for Drive item metadata
+interface DriveItemMetadata {
   id: string;
   name: string;
   mimeType: string;
+  type: 'file' | 'folder';
   webViewLink?: string;
   thumbnailLink?: string;
 }
@@ -27,15 +28,18 @@ interface DriveChatRequest {
     role: string;
     content: string;
   }[];
-  driveFileUrl: string;
+  driveItemId: string;
+  driveItemType: 'file' | 'folder';
 }
 
-const FolderChatInterface = () => {
+interface FolderChatInterfaceProps {
+  driveItem: DriveItemMetadata | null;
+}
+
+const FolderChatInterface = ({ driveItem }: FolderChatInterfaceProps) => {
   const [messages, setMessages] = useState<ChatMessageType[]>([]);
   const [inputValue, setInputValue] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const [driveFileUrl, setDriveFileUrl] = useState<string>("");
-  const [currentFile, setCurrentFile] = useState<DriveFileMetadata | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
 
@@ -47,90 +51,24 @@ const FolderChatInterface = () => {
   // Clear chat messages
   const clearChat = () => {
     setMessages([]);
-    setCurrentFile(null);
-    setDriveFileUrl("");
   };
 
-  // Extract the file ID from a Google Drive URL
-  const extractFileIdFromUrl = (url: string): string | null => {
-    try {
-      // Google Drive URL formats:
-      // https://drive.google.com/file/d/{fileId}/view
-      // https://drive.google.com/open?id={fileId}
-      // https://docs.google.com/document/d/{fileId}/edit
-      // https://docs.google.com/spreadsheets/d/{fileId}/edit
-      // https://docs.google.com/presentation/d/{fileId}/edit
+  // Initialize chat when driveItem changes
+  useEffect(() => {
+    if (driveItem && messages.length === 0) {
+      // Add welcome message when a new Drive item is loaded
+      const itemTypeText = driveItem.type === 'folder' ? 'folder' : 'file';
       
-      let fileId: string | null = null;
+      // Assistant welcome message
+      const assistantMessage: ChatMessageType = {
+        role: 'assistant',
+        content: `I'll help you with questions about the ${itemTypeText} "${driveItem.name}". What would you like to know about its contents?`,
+        timestamp: new Date(),
+      };
       
-      // Handle file/d/{fileId}/view format
-      if (url.includes('/file/d/')) {
-        const match = url.match(/\/file\/d\/([^/]+)/);
-        if (match && match[1]) {
-          fileId = match[1];
-        }
-      } 
-      // Handle ?id= format
-      else if (url.includes('?id=')) {
-        const match = url.match(/[?&]id=([^&]+)/);
-        if (match && match[1]) {
-          fileId = match[1];
-        }
-      } 
-      // Handle docs.google.com with document/spreadsheet/presentation format
-      else if (url.includes('docs.google.com')) {
-        const match = url.match(/\/d\/([^/]+)/);
-        if (match && match[1]) {
-          fileId = match[1];
-        }
-      }
-      
-      return fileId;
-    } catch (error) {
-      console.error("Error extracting file ID:", error);
-      return null;
+      setMessages([assistantMessage]);
     }
-  };
-
-  // Fetch file metadata
-  const fetchFileMetadata = async (fileUrl: string) => {
-    try {
-      const fileId = extractFileIdFromUrl(fileUrl);
-      
-      if (!fileId) {
-        toast({
-          title: "Invalid Drive URL",
-          description: "Please enter a valid Google Drive file URL",
-          variant: "destructive",
-        });
-        return null;
-      }
-      
-      setIsLoading(true);
-      
-      const response = await fetch(`/api/drive/metadata?fileId=${fileId}`, {
-        method: "GET",
-        credentials: "include",
-      });
-      
-      if (!response.ok) {
-        throw new Error(`Failed to get file metadata: ${response.status}`);
-      }
-      
-      const data = await response.json();
-      return data.file;
-    } catch (error) {
-      console.error("Error fetching file metadata:", error);
-      toast({
-        title: "Error",
-        description: "Failed to access the Drive file. Please check your permissions.",
-        variant: "destructive",
-      });
-      return null;
-    } finally {
-      setIsLoading(false);
-    }
-  };
+  }, [driveItem]);
 
   // Handle form submission
   const handleSubmit = async (e: FormEvent) => {
@@ -138,42 +76,11 @@ const FolderChatInterface = () => {
     
     if (!inputValue.trim()) return;
     
-    // Check if input is a Google Drive URL and we don't have a file loaded yet
-    if (!currentFile && inputValue.includes('drive.google.com')) {
-      setDriveFileUrl(inputValue);
-      
-      // Process the Drive URL to get file metadata
-      const fileMetadata = await fetchFileMetadata(inputValue);
-      
-      if (fileMetadata) {
-        setCurrentFile(fileMetadata);
-        
-        // Add user message
-        const userMessage: ChatMessageType = {
-          role: 'user',
-          content: `I'd like to ask questions about this file: ${fileMetadata.name}`,
-          timestamp: new Date(),
-        };
-        
-        // Add assistant welcome message
-        const assistantMessage: ChatMessageType = {
-          role: 'assistant',
-          content: `I'll help you with questions about "${fileMetadata.name}". What would you like to know about this document?`,
-          timestamp: new Date(),
-        };
-        
-        setMessages([...messages, userMessage, assistantMessage]);
-        setInputValue("");
-      }
-      
-      return;
-    }
-    
     // Regular chat message
-    if (!currentFile) {
+    if (!driveItem) {
       toast({
-        title: "No file selected",
-        description: "Please first share a Google Drive file URL",
+        title: "No drive item selected",
+        description: "Please first connect to a Google Drive file or folder",
         variant: "destructive",
       });
       return;
@@ -197,11 +104,17 @@ const FolderChatInterface = () => {
           ...messages.map(({ role, content }) => ({ role, content })),
           { role: userMessage.role, content: userMessage.content },
         ],
-        driveFileUrl: driveFileUrl,
+        driveItemId: driveItem.id,
+        driveItemType: driveItem.type
       };
 
+      // Determine which endpoint to use based on item type
+      const endpoint = driveItem.type === 'folder' 
+        ? "/api/drive/folder/chat" 
+        : "/api/drive/file/chat";
+
       // Send request to backend
-      const response = await fetch("/api/drive/chat", {
+      const response = await fetch(endpoint, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -252,26 +165,6 @@ const FolderChatInterface = () => {
         )}
       </div>
       
-      {/* Current File Banner */}
-      {currentFile && (
-        <div className="mx-3 p-2 mb-3 bg-emerald-950/50 border border-emerald-800/50 rounded-md flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <FileText className="h-4 w-4 text-emerald-400" />
-            <span className="text-xs text-emerald-300 truncate max-w-[160px]">{currentFile.name}</span>
-          </div>
-          {currentFile.webViewLink && (
-            <a 
-              href={currentFile.webViewLink} 
-              target="_blank" 
-              rel="noopener noreferrer"
-              className="text-emerald-400 hover:text-emerald-300"
-            >
-              <ExternalLink className="h-3 w-3" />
-            </a>
-          )}
-        </div>
-      )}
-      
       {/* Chat Messages Container - Scrollable */}
       <div className="flex-1 overflow-y-auto p-3 space-y-3">
         {/* Welcome Message */}
@@ -281,7 +174,9 @@ const FolderChatInterface = () => {
               <Bot className="h-6 w-6 text-emerald-400" />
             </div>
             <p className="text-sm text-gray-400 max-w-xs mx-auto">
-              Paste a Google Drive URL to start analyzing documents and asking questions about your files.
+              {driveItem 
+                ? `Ask questions about "${driveItem.name}"` 
+                : "Connect to a Google Drive file or folder to get started"}
             </p>
           </div>
         )}
@@ -329,17 +224,20 @@ const FolderChatInterface = () => {
           <div className="relative">
             <Input
               type="text"
-              placeholder={currentFile ? "Ask a question about this document..." : "Paste a Google Drive file URL..."}
+              placeholder={driveItem 
+                ? `Ask about this ${driveItem.type}...` 
+                : "Connect a Drive file or folder first..."
+              }
               className="w-full pl-4 pr-12 py-2 bg-gray-900 border border-gray-700 rounded-full focus:outline-none focus:ring-1 focus:ring-emerald-500"
               value={inputValue}
               onChange={(e) => setInputValue(e.target.value)}
-              disabled={isLoading}
+              disabled={isLoading || !driveItem}
             />
             <Button 
               type="submit"
               size="icon"
               className="absolute right-1 top-1/2 -translate-y-1/2 h-8 w-8 bg-emerald-700 hover:bg-emerald-600 rounded-full flex items-center justify-center"
-              disabled={!inputValue.trim() || isLoading}
+              disabled={!inputValue.trim() || isLoading || !driveItem}
             >
               <Send className="h-4 w-4" />
             </Button>
