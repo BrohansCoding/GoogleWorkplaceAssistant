@@ -150,8 +150,8 @@ export function registerGmailRoutes(app: Express): void {
                 "Your PRIMARY RESPONSIBILITY is to categorize emails into user-defined custom categories first, " +
                 "and only use default categories when there is absolutely no match with custom categories. " +
                 "Custom categories are marked with IsCustom: YES - these are HIGH PRIORITY and should be used " +
-                "when there is any reasonable semantic connection between the email content and the custom category. " +
-                "Consider the meaning and intent of the email beyond just keyword matching. " +
+                "when the email content contains exact keywords from the category name or description. " +
+                "Always prioritize exact keyword matching for best categorization performance. " +
                 "Remember, the user specifically created these custom categories for their emails, " +
                 "so they should be favored over default categories whenever possible.",
                 messages
@@ -168,8 +168,8 @@ export function registerGmailRoutes(app: Express): void {
                   "Your PRIMARY RESPONSIBILITY is to categorize emails into user-defined custom categories first, " +
                   "and only use default categories when there is absolutely no match with custom categories. " +
                   "Custom categories are marked with IsCustom: YES - these are HIGH PRIORITY and should be used " +
-                  "when there is any reasonable semantic connection between the email content and the custom category. " +
-                  "Consider the meaning and intent of the email beyond just keyword matching. " +
+                  "when the email content contains exact keywords from the category name or description. " +
+                  "Always prioritize exact keyword matching for best categorization performance. " +
                   "Remember, the user specifically created these custom categories for their emails, " +
                   "so they should be favored over default categories whenever possible.",
                   messages
@@ -277,7 +277,7 @@ export function registerGmailRoutes(app: Express): void {
       }
       
       // Format categories for Groq API
-      const categoriesConfig = updatedCategories.map(cat => ({
+      const categoriesConfig = updatedCategories.map((cat: any) => ({
         name: cat.name,
         description: cat.description,
         isDefault: cat.isDefault === false ? false : true
@@ -295,8 +295,8 @@ export function registerGmailRoutes(app: Express): void {
               "Your PRIMARY RESPONSIBILITY is to categorize emails into user-defined custom categories first, " +
               "and only use default categories when there is absolutely no match with custom categories. " +
               "Custom categories are marked with IsCustom: YES - these are HIGH PRIORITY and should be used " +
-              "when there is any reasonable semantic connection between the email content and the custom category. " +
-              "Consider the meaning and intent of the email beyond just keyword matching. " +
+              "when the email content contains exact keywords from the category name or description. " +
+              "Always prioritize exact keyword matching for best categorization performance. " +
               "Remember, the user specifically created these custom categories for their emails, " +
               "so they should be favored over default categories whenever possible.",
               messages
@@ -331,7 +331,7 @@ export function registerGmailRoutes(app: Express): void {
         let reassignedThreads = threads.map((thread: any) => {
           if (thread.category === categoryToDelete.name) {
             // Find a reasonable default category from remaining categories
-            const defaultCategory = updatedCategories.find(cat => cat.isDefault) || updatedCategories[0];
+            const defaultCategory = updatedCategories.find((cat: any) => cat.isDefault) || updatedCategories[0];
             return {
               ...thread,
               category: defaultCategory.name

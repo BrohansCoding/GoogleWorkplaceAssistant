@@ -627,15 +627,7 @@ const EmailView = () => {
             <Plus className="h-4 w-4 mr-2" />
             New Category
           </Button>
-          <Button 
-            size="sm" 
-            variant="secondary"
-            onClick={testFirebaseRules}
-            disabled={isCategorizing}
-          >
-            <ShieldCheck className="h-4 w-4 mr-2" />
-            Test Firebase Access
-          </Button>
+
         </div>
       </div>
       
