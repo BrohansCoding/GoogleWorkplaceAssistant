@@ -4,6 +4,24 @@ import { Database, FolderOpen, LogIn } from "lucide-react";
 import { signInWithGoogleDriveScope } from "@/lib/firebase";
 import { useToast } from "@/hooks/use-toast";
 
+// Using a type instead of an interface gives more flexibility with union types
+type DriveAuthResult = 
+  | { 
+      success: true; 
+      user: any;
+      oauthToken: string;
+      idToken: string | null;
+      forDrive: boolean;
+    }
+  | { 
+      success: true; 
+      redirecting: boolean; 
+    }
+  | { 
+      success: false; 
+      error: string;
+    };
+
 interface DriveAuthButtonProps {
   onAuthSuccess?: () => void;
 }
@@ -16,7 +34,7 @@ const DriveAuthButton = ({ onAuthSuccess }: DriveAuthButtonProps) => {
     setIsLoading(true);
     try {
       // Call specialized function for Drive authentication
-      const result = await signInWithGoogleDriveScope();
+      const result: DriveAuthResult = await signInWithGoogleDriveScope();
       
       if (result.success) {
         toast({
@@ -32,7 +50,7 @@ const DriveAuthButton = ({ onAuthSuccess }: DriveAuthButtonProps) => {
       } else {
         toast({
           title: "Authentication Error",
-          description: result.error || "Failed to authenticate with Google Drive.",
+          description: result.error ? result.error : "Failed to authenticate with Google Drive.",
           variant: "destructive",
         });
       }

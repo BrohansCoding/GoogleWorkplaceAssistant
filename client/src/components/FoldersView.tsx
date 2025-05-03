@@ -213,22 +213,30 @@ const FoldersView = () => {
             <div className="relative">
               <Input
                 type="text"
-                placeholder="Paste a Google Drive file or folder URL..."
+                placeholder={hasDriveAuth 
+                  ? "Paste a Google Drive file or folder URL..." 
+                  : "Please connect to Drive first (Step 1)..."}
                 className="w-full pl-4 pr-12 py-3 bg-gray-900 border border-emerald-800 text-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
                 value={driveUrl}
                 onChange={(e) => setDriveUrl(e.target.value)}
-                disabled={isLoading}
+                disabled={isLoading || !hasDriveAuth}
               />
               <Button 
                 type="submit"
                 size="sm"
                 className="absolute right-1 top-1/2 -translate-y-1/2 h-8 bg-emerald-700 hover:bg-emerald-600 rounded-md flex items-center justify-center"
-                disabled={!driveUrl.trim() || isLoading}
+                disabled={!driveUrl.trim() || isLoading || !hasDriveAuth}
               >
                 {isLoading ? "Loading..." : "Connect"}
                 <Search className="h-4 w-4 ml-1" />
               </Button>
             </div>
+            {!hasDriveAuth && (
+              <p className="text-amber-400 text-xs mt-2 flex items-center gap-1">
+                <Info className="h-3 w-3" />
+                Complete Step 1 to connect to Google Drive first
+              </p>
+            )}
           </form>
           
           <div className="bg-gray-900/80 p-4 rounded-lg border border-emerald-900">
