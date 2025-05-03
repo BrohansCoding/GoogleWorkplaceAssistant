@@ -2,7 +2,7 @@ import type { Express, Request, Response } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import axios from "axios";
-import { GroqChatRequest, EmailCategoryType, GmailCategorizeRequest } from "@shared/schema";
+import { GroqChatRequest } from "@shared/schema";
 import { getGroqCompletion } from "./groqApi";
 import {
   getGoogleDriveFileMetadata,
@@ -11,7 +11,7 @@ import {
   extractFileIdFromUrl,
   extractIdFromUrl
 } from "./driveApi";
-import { fetchGmailThreads, categorizeThreadsWithGroq } from "./gmailApi";
+import { registerGmailRoutes } from "./routes-gmail";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Auth routes
@@ -1084,6 +1084,9 @@ ${folderData.files.map((file, index) => `${index + 1}. ${file.name} (${file.mime
       });
     }
   });
+  
+  // Register Gmail routes
+  registerGmailRoutes(app);
 
   const httpServer = createServer(app);
   return httpServer;
