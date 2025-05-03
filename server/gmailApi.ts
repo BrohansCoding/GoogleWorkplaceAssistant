@@ -198,7 +198,7 @@ export async function fetchGmailThreads(
   }
 }
 
-// Function to categorize Gmail threads using Groq (enhanced version)
+// Function to categorize Gmail threads using Groq (enhanced version with AI integration)
 export async function categorizeThreadsWithGroq(
   threads: GmailThread[] | any[],
   categoriesConfig: { name: string, description: string, isDefault?: boolean }[],
@@ -206,8 +206,19 @@ export async function categorizeThreadsWithGroq(
   customPrompt?: string
 ): Promise<{ category: string, threads: GmailThread[] | any[] }[]> {
   try {
-    console.log(`Categorizing ${threads.length} emails using enhanced rule-based categorization`);
+    console.log(`Categorizing ${threads.length} emails using enhanced rule-based categorization with AI assistance`);
     console.log(`Categories available: ${categoriesConfig.map(c => c.name).join(', ')}`);
+    
+    // Check for custom categories
+    const customCategories = categoriesConfig.filter(cat => cat.isDefault === false);
+    const hasCustomCategories = customCategories.length > 0;
+    
+    if (hasCustomCategories) {
+      console.log(`Found ${customCategories.length} custom categories:`);
+      customCategories.forEach(cat => {
+        console.log(`- ${cat.name}: "${cat.description}"`);
+      });
+    }
     
     // Initialize result arrays by category
     const categorizedResults: { [key: string]: any[] } = {};
@@ -215,148 +226,130 @@ export async function categorizeThreadsWithGroq(
       categorizedResults[cat.name] = [];
     });
     
-    // Categorize emails based on advanced rules with scoring
-    threads.forEach(thread => {
-      // Parse email content
-      const subject = (thread.subject || '').toLowerCase();
-      const snippet = (thread.snippet || '').toLowerCase();
-      const from = (thread.from || '').toLowerCase();
-      const fullText = `${subject} ${snippet} ${from}`;
-      
-      // Track if email has been assigned to a category
-      let assigned = false;
-      
-      // Score each category based on relevance
-      let categoryScores: {[key: string]: number} = {};
-      
-      // First pass: Score each category based on keyword matches
-      for (const category of categoriesConfig) {
-        categoryScores[category.name] = 0;
-        const name = category.name.toLowerCase();
-        const description = category.description.toLowerCase();
+    // Prepare detailed category descriptions for the AI
+    const categoryDescriptions = categoriesConfig.map(cat => 
+      `Category: ${cat.name}\nDescription: ${cat.description}\nIsCustom: ${cat.isDefault === false ? 'YES' : 'no'}`
+    ).join('\n\n');
+    
+    // For custom categories, we'll use Groq AI to help with categorization
+    // But we'll only do this if there are custom categories to avoid unnecessary API calls
+    if (hasCustomCategories && threads.length > 0) {
+      try {
+        console.log("Using Groq AI for enhanced categorization of custom categories...");
         
-        // Extract keywords from the category description
-        const descKeywords = description
-          .replace(/[.,\/#!$%\^&\*;:{}=\-_`~()]/g, "")
-          .split(/\s+/)
-          .filter(word => word.length > 3); // Only use meaningful words
+        // Create batches of emails for processing (max 5 at a time to avoid token limits)
+        const BATCH_SIZE = 5;
+        const batches = [];
         
-        // Check for category name match (highest priority)
-        if (fullText.includes(name)) {
-          categoryScores[category.name] += 10;
+        for (let i = 0; i < Math.min(threads.length, 50); i += BATCH_SIZE) {
+          batches.push(threads.slice(i, i + BATCH_SIZE));
         }
         
-        // Check for keywords from description
-        descKeywords.forEach(keyword => {
-          if (fullText.includes(keyword)) {
-            categoryScores[category.name] += 2;
-          }
-        });
+        console.log(`Processing ${batches.length} batches of emails for AI categorization`);
         
-        // Add standard rules for known categories
-        if (name.includes('important') || name.includes('action') || name.includes('urgent')) {
-          if (subject.includes('urgent') || subject.includes('important') || 
-              subject.includes('action') || subject.includes('required') ||
-              subject.includes('asap') || subject.includes('immediately') ||
-              subject.includes('deadline')) {
-            categoryScores[category.name] += 8;
-          }
-        }
-        
-        if (name.includes('newsletter') || name.includes('updates') || name.includes('subscription')) {
-          if (subject.includes('newsletter') || subject.includes('weekly update') || 
-              subject.includes('digest') || subject.includes('subscription') ||
-              from.includes('newsletter') || from.includes('noreply') ||
-              from.includes('updates') || subject.includes('latest news')) {
-            categoryScores[category.name] += 8;
-          }
-        }
-        
-        if (name.includes('auto') || name.includes('archive') || name.includes('notification')) {
-          if (from.includes('notification') || from.includes('noreply') || 
-              from.includes('alert') || from.includes('system') ||
-              from.includes('no-reply') || from.includes('donotreply') ||
-              subject.includes('receipt') || subject.includes('confirmation') ||
-              subject.includes('notification') || subject.includes('automated')) {
-            categoryScores[category.name] += 8;
-          }
-        }
-        
-        // Enhanced special handling for custom categories 
-        // Give higher priority to custom user-created categories
-        if (category.isDefault === false) {
-          console.log(`Scoring custom category "${category.name}" (${description})`);
+        for (let batchIndex = 0; batchIndex < batches.length; batchIndex++) {
+          const batch = batches[batchIndex];
+          console.log(`\nProcessing batch ${batchIndex + 1}/${batches.length} with ${batch.length} emails`);
           
-          // Check for any word from the name in the email (higher weight)
-          const nameWords = name.split(/\s+/);
-          nameWords.forEach(word => {
-            if (word.length > 2 && fullText.includes(word)) {
-              categoryScores[category.name] += 8; // Increased from 5 to 8
-              console.log(`- Name match on "${word}": +8 points`);
-            }
-          });
+          // Create a prompt for the AI that includes all categories and emails in this batch
+          const emailTexts = batch.map((thread, idx) => {
+            const subject = thread.subject || '(No subject)';
+            const snippet = thread.snippet || '(No content)';
+            const from = thread.from || 'unknown@example.com';
+            return `Email ${idx + 1}:\nFrom: ${from}\nSubject: ${subject}\nContent: ${snippet}`;
+          }).join('\n\n');
           
-          // Give more weight to description keywords for custom categories
-          descKeywords.forEach(keyword => {
-            if (fullText.includes(keyword)) {
-              // Add more points for description matches in custom categories
-              categoryScores[category.name] += 3; // Additional points beyond the 2 already given
-              console.log(`- Description keyword match on "${keyword}": +3 points`);
-            }
-          });
-          
-          // Special bonus for exact matches of important terms
-          const importantTerms = description
-            .split(/[.,;:]/)
-            .map(phrase => phrase.trim())
-            .filter(phrase => phrase.length > 0);
+          const prompt = `You are an expert email categorization system. You have the following categories:
+
+${categoryDescriptions}
+
+Please categorize each of the following emails into the most appropriate category.
+Pay special attention to custom categories (marked as IsCustom: YES) and prioritize them when there's a good match.
+For each email, respond with the email number and the category name only.
+
+${emailTexts}
+
+Respond with just the categorizations in this exact format:
+Email 1: [Category Name]
+Email 2: [Category Name]
+...and so on.`;
+
+          try {
+            // Call Groq API with our custom prompt
+            const aiResponse = await groqApiFunction([
+              { role: "system", content: "You are an expert email categorization assistant that categorizes emails based on their content and the available categories." },
+              { role: "user", content: prompt }
+            ]);
             
-          importantTerms.forEach(phrase => {
-            if (fullText.includes(phrase)) {
-              categoryScores[category.name] += 10;
-              console.log(`- Important phrase match on "${phrase}": +10 points`);
+            console.log(`Received AI categorization response for batch ${batchIndex + 1}`);
+            
+            // Parse the response
+            const responseLines = aiResponse.split('\n');
+            
+            for (const line of responseLines) {
+              if (line.trim() === '') continue;
+              
+              // Extract email number and category
+              const match = line.match(/Email\s+(\d+):\s+(.*)/i);
+              if (match) {
+                const emailIndex = parseInt(match[1]) - 1;
+                const categoryName = match[2].trim();
+                
+                // Make sure it's a valid category name
+                if (categoriesConfig.some(cat => cat.name === categoryName) && emailIndex < batch.length) {
+                  const email = batch[emailIndex];
+                  console.log(`AI categorized email "${email.subject?.substring(0, 30) || '(No subject)'}..." as "${categoryName}"`);
+                  
+                  // Only use AI categorization if the category exists
+                  if (categorizedResults[categoryName]) {
+                    categorizedResults[categoryName].push(email);
+                  } else {
+                    console.log(`Warning: AI suggested category "${categoryName}" doesn't exist`);
+                    // Use rule-based fallback for this email
+                    categorizeEmailWithRules(email, categoriesConfig, categorizedResults);
+                  }
+                } else {
+                  console.log(`Warning: Invalid category "${categoryName}" or email index ${emailIndex}`);
+                  // Use rule-based fallback for this email
+                  if (emailIndex < batch.length) {
+                    categorizeEmailWithRules(batch[emailIndex], categoriesConfig, categorizedResults);
+                  }
+                }
+              }
             }
+          } catch (aiError) {
+            console.error("Error using AI for categorization:", aiError);
+            console.log("Falling back to rule-based categorization for this batch");
+            
+            // Fallback to rule-based for this batch
+            batch.forEach(email => {
+              categorizeEmailWithRules(email, categoriesConfig, categorizedResults);
+            });
+          }
+        }
+        
+        // For any remaining emails (beyond the first 50), use rule-based categorization
+        if (threads.length > 50) {
+          console.log(`Using rule-based categorization for the remaining ${threads.length - 50} emails`);
+          threads.slice(50).forEach(email => {
+            categorizeEmailWithRules(email, categoriesConfig, categorizedResults);
           });
         }
-      }
-      
-      // Find the category with the highest score
-      let bestCategory = categoriesConfig[0];
-      let highestScore = 0;
-      
-      // Log all category scores for this email
-      console.log(`\nScoring results for email: "${subject.substring(0, 30)}..."`);
-      Object.entries(categoryScores).forEach(([categoryName, score]) => {
-        const isCustom = categoriesConfig.find(c => c.name === categoryName)?.isDefault === false;
-        console.log(`- ${categoryName}${isCustom ? ' (custom)' : ''}: ${score} points`);
+      } catch (aiCategorizeError) {
+        console.error("AI categorization failed, falling back to rule-based:", aiCategorizeError);
         
-        if (score > highestScore) {
-          highestScore = score;
-          bestCategory = categoriesConfig.find(c => c.name === categoryName) || categoriesConfig[0];
-        }
+        // If AI categorization fails, fall back to rule-based for all emails
+        threads.forEach(email => {
+          categorizeEmailWithRules(email, categoriesConfig, categorizedResults);
+        });
+      }
+    } else {
+      // No custom categories, use rule-based approach for all emails
+      console.log("Using rule-based categorization for all emails (no custom categories)");
+      threads.forEach(email => {
+        categorizeEmailWithRules(email, categoriesConfig, categorizedResults);
       });
-      
-      // Log the winning category
-      console.log(`Selected category: ${bestCategory.name} (score: ${highestScore})`);
-      console.log(`IsDefault: ${bestCategory.isDefault !== false ? 'Yes' : 'No (Custom)'}`);
-      console.log('-----------------------------------------');
-      
-      // If we have a score, assign to the best category
-      if (highestScore > 0) {
-        categorizedResults[bestCategory.name].push(thread);
-        assigned = true;
-      }
-      
-      // If not assigned, add to default category (Can Wait or first one)
-      if (!assigned && categoriesConfig.length > 0) {
-        const defaultCategory = categoriesConfig.find(cat => 
-          cat.name.toLowerCase().includes('wait') || 
-          cat.name.toLowerCase().includes('other')
-        ) || categoriesConfig[0];
-        
-        categorizedResults[defaultCategory.name].push(thread);
-      }
-    });
+    }
     
     // Format for return
     return Object.keys(categorizedResults).map(category => ({
@@ -366,5 +359,148 @@ export async function categorizeThreadsWithGroq(
   } catch (error) {
     console.error("Error categorizing threads:", error);
     throw error;
+  }
+}
+
+// Helper function for rule-based email categorization
+function categorizeEmailWithRules(
+  thread: any,
+  categoriesConfig: { name: string, description: string, isDefault?: boolean }[],
+  categorizedResults: { [key: string]: any[] }
+): void {
+  // Parse email content
+  const subject = (thread.subject || '').toLowerCase();
+  const snippet = (thread.snippet || '').toLowerCase();
+  const from = (thread.from || '').toLowerCase();
+  const fullText = `${subject} ${snippet} ${from}`;
+  
+  // Track if email has been assigned to a category
+  let assigned = false;
+  
+  // Score each category based on relevance
+  let categoryScores: {[key: string]: number} = {};
+  
+  // First pass: Score each category based on keyword matches
+  for (const category of categoriesConfig) {
+    categoryScores[category.name] = 0;
+    const name = category.name.toLowerCase();
+    const description = category.description.toLowerCase();
+    
+    // Extract keywords from the category description
+    const descKeywords = description
+      .replace(/[.,\/#!$%\^&\*;:{}=\-_`~()]/g, "")
+      .split(/\s+/)
+      .filter(word => word.length > 3); // Only use meaningful words
+    
+    // Check for category name match (highest priority)
+    if (fullText.includes(name)) {
+      categoryScores[category.name] += 10;
+    }
+    
+    // Check for keywords from description
+    descKeywords.forEach(keyword => {
+      if (fullText.includes(keyword)) {
+        categoryScores[category.name] += 2;
+      }
+    });
+    
+    // Add standard rules for known categories
+    if (name.includes('important') || name.includes('action') || name.includes('urgent')) {
+      if (subject.includes('urgent') || subject.includes('important') || 
+          subject.includes('action') || subject.includes('required') ||
+          subject.includes('asap') || subject.includes('immediately') ||
+          subject.includes('deadline')) {
+        categoryScores[category.name] += 8;
+      }
+    }
+    
+    if (name.includes('newsletter') || name.includes('updates') || name.includes('subscription')) {
+      if (subject.includes('newsletter') || subject.includes('weekly update') || 
+          subject.includes('digest') || subject.includes('subscription') ||
+          from.includes('newsletter') || from.includes('noreply') ||
+          from.includes('updates') || subject.includes('latest news')) {
+        categoryScores[category.name] += 8;
+      }
+    }
+    
+    if (name.includes('auto') || name.includes('archive') || name.includes('notification')) {
+      if (from.includes('notification') || from.includes('noreply') || 
+          from.includes('alert') || from.includes('system') ||
+          from.includes('no-reply') || from.includes('donotreply') ||
+          subject.includes('receipt') || subject.includes('confirmation') ||
+          subject.includes('notification') || subject.includes('automated')) {
+        categoryScores[category.name] += 8;
+      }
+    }
+    
+    // Enhanced special handling for custom categories 
+    // Give higher priority to custom user-created categories
+    if (category.isDefault === false) {
+      // Check for any word from the name in the email (higher weight)
+      const nameWords = name.split(/\s+/);
+      nameWords.forEach(word => {
+        if (word.length > 2 && fullText.includes(word)) {
+          categoryScores[category.name] += 8; // Increased from 5 to 8
+        }
+      });
+      
+      // Give more weight to description keywords for custom categories
+      descKeywords.forEach(keyword => {
+        if (fullText.includes(keyword)) {
+          // Add more points for description matches in custom categories
+          categoryScores[category.name] += 3; // Additional points beyond the 2 already given
+        }
+      });
+      
+      // Special bonus for exact matches of important terms
+      const importantTerms = description
+        .split(/[.,;:]/)
+        .map(phrase => phrase.trim())
+        .filter(phrase => phrase.length > 0);
+        
+      importantTerms.forEach(phrase => {
+        if (fullText.includes(phrase)) {
+          categoryScores[category.name] += 10;
+        }
+      });
+    }
+  }
+  
+  // Find the category with the highest score
+  let bestCategory = categoriesConfig[0];
+  let highestScore = 0;
+  
+  // Log all category scores for this email
+  console.log(`\nRule-based scoring for email: "${subject.substring(0, 30)}..."`);
+  
+  Object.entries(categoryScores).forEach(([categoryName, score]) => {
+    const isCustom = categoriesConfig.find(c => c.name === categoryName)?.isDefault === false;
+    console.log(`- ${categoryName}${isCustom ? ' (custom)' : ''}: ${score} points`);
+    
+    if (score > highestScore) {
+      highestScore = score;
+      bestCategory = categoriesConfig.find(c => c.name === categoryName) || categoriesConfig[0];
+    }
+  });
+  
+  // Log the winning category
+  console.log(`Selected category: ${bestCategory.name} (score: ${highestScore})`);
+  console.log(`IsDefault: ${bestCategory.isDefault !== false ? 'Yes' : 'No (Custom)'}`);
+  console.log('-----------------------------------------');
+  
+  // If we have a score, assign to the best category
+  if (highestScore > 0) {
+    categorizedResults[bestCategory.name].push(thread);
+    assigned = true;
+  }
+  
+  // If not assigned, add to default category (Can Wait or first one)
+  if (!assigned && categoriesConfig.length > 0) {
+    const defaultCategory = categoriesConfig.find(cat => 
+      cat.name.toLowerCase().includes('wait') || 
+      cat.name.toLowerCase().includes('other')
+    ) || categoriesConfig[0];
+    
+    categorizedResults[defaultCategory.name].push(thread);
   }
 }

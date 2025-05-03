@@ -133,16 +133,23 @@ export function registerGmailRoutes(app: Express): void {
       }));
       
       try {
-        // Categorize threads using Groq with retry mechanism for rate limiting
+        // Enhanced approach: Categorize threads using Groq with retry mechanism
+        // Now with special handling for custom categories
         const rawCategorizedThreads = await categorizeThreadsWithGroq(
           threadsToProcess,
           categoriesConfig,
-          // Pass the Groq completion function
+          // Pass the enhanced Groq completion function
           async (messages: any[]) => {
             try {
-              // Use the specialized email categorization function
+              console.log("Sending request to Groq AI for categorization with custom prompt");
+              
+              // Use the specialized email categorization function with more AI guidance
+              // for custom categories
               return await getGroqEmailCategorization(
-                "You are an AI assistant that specializes in email categorization. Your task is to categorize emails into the provided categories.",
+                "You are an AI assistant that specializes in email categorization. " +
+                "Your task is to categorize emails into the provided categories. " +
+                "Pay special attention to custom categories marked with IsCustom: YES " +
+                "and prioritize them when there's a good match based on the category name and description.",
                 messages
               );
             } catch (groqError: any) {
@@ -153,7 +160,10 @@ export function registerGmailRoutes(app: Express): void {
                 await new Promise(resolve => setTimeout(resolve, 2000));
                 // Use specialized function for the retry as well
                 return await getGroqEmailCategorization(
-                  "You are an AI assistant that specializes in email categorization. Your task is to categorize emails into the provided categories.",
+                  "You are an AI assistant that specializes in email categorization. " +
+                  "Your task is to categorize emails into the provided categories. " +
+                  "Pay special attention to custom categories marked with IsCustom: YES " +
+                  "and prioritize them when there's a good match based on the category name and description.",
                   messages
                 );
               }
