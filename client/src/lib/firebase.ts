@@ -411,10 +411,11 @@ export const forceReauthWithUpdatedScopes = async () => {
     clearOAuthToken();
     
     // Store a message for the user explaining why they need to sign in again
-    window.localStorage.setItem('AUTH_MESSAGE', 'You need to sign in again to grant permission to modify your calendar.');
+    window.localStorage.setItem('AUTH_MESSAGE', 'You need to sign in again to grant permission to access your Google Drive and Calendar.');
     
-    // Add a flag to indicate we need calendar write permission
+    // Add a flag to indicate we need calendar write permission and drive access
     window.localStorage.setItem('NEED_CALENDAR_WRITE', 'true');
+    window.localStorage.setItem('NEED_DRIVE_ACCESS', 'true');
     
     // Sign out
     await signOut();
@@ -422,7 +423,7 @@ export const forceReauthWithUpdatedScopes = async () => {
     // Return success
     return { 
       success: true, 
-      message: 'Please sign in again to grant calendar write permission. You were signed out because your current permissions only allow reading your calendar, not modifying it.'
+      message: 'Please sign in again to grant Google Drive and Calendar permissions. You were signed out because your current permissions are insufficient for accessing your files.'
     };
   } catch (error) {
     console.error('Error during forced re-authentication:', error);

@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import FolderChatInterface from "@/components/FolderChatInterface";
 import { MobileContext } from "@/context/MobileContext";
 import { useToast } from "@/hooks/use-toast";
+import { forceReauthWithUpdatedScopes } from "@/lib/firebase";
 
 // Define interface for Drive item metadata
 interface DriveItemMetadata {
@@ -76,6 +77,8 @@ const FoldersView = () => {
     }
   };
 
+  // Imported at the top of the file
+
   // Handle form submission
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -108,6 +111,24 @@ const FoldersView = () => {
         method: "GET",
         credentials: "include",
       });
+      
+      // Handle permission errors - force re-auth with updated scopes
+      if (response.status === 403 || response.status === 401) {
+        const errorData = await response.json();
+        if (errorData.code === "PERMISSION_DENIED") {
+          // We need additional permissions
+          toast({
+            title: "Additional Permissions Required",
+            description: "You need to grant Drive access permissions. Please sign in again.",
+            variant: "default",
+          });
+          
+          // Force re-auth with updated scopes
+          await forceReauthWithUpdatedScopes();
+          setIsLoading(false);
+          return;
+        }
+      }
       
       if (!response.ok) {
         throw new Error(`Failed to get Drive item: ${response.status}`);
