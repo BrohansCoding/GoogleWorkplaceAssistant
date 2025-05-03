@@ -26,6 +26,7 @@ const EmailView = () => {
   const [categories, setCategories] = useState<EmailCategoryType[]>(DEFAULT_EMAIL_CATEGORIES);
   const [isLoading, setIsLoading] = useState(false);
   const [isCategorizing, setIsCategorizing] = useState(false);
+  const [isCreatingCategory, setIsCreatingCategory] = useState(false);
   const [newCategoryDialog, setNewCategoryDialog] = useState(false);
   const [newCategoryName, setNewCategoryName] = useState("");
   const [newCategoryDesc, setNewCategoryDesc] = useState("");
@@ -202,7 +203,18 @@ const EmailView = () => {
     }
     
     try {
+      // Close the dialog immediately to show the loading UI
+      setNewCategoryDialog(false);
+      
+      // Set both loading states to true to show full-screen loading
+      setIsCreatingCategory(true);
       setIsCategorizing(true);
+      
+      toast({
+        title: "Creating category...",
+        description: "Creating your new category and updating your emails...",
+        variant: "default"
+      });
       
       // Generate the clean bucket ID that will be used
       const bucketId = newCategoryName.toLowerCase().replace(/\s+/g, '-');
@@ -234,19 +246,19 @@ const EmailView = () => {
         const updatedCategories = [...categories, newCategory];
         setCategories(updatedCategories);
         
-        // Re-categorize all threads with the new category set
-        await categorizeEmails();
-        
-        // Reset and close dialog
-        setNewCategoryName("");
-        setNewCategoryDesc("");
-        setNewCategoryDialog(false);
+        // Always reload emails and re-categorize when adding a new category
+        // This ensures we have the most current data and they're properly categorized
+        await fetchEmails();
         
         toast({
           title: "Category added",
           description: `New category "${newCategoryName}" has been created and your emails have been reorganized.`,
           variant: "default"
         });
+        
+        // Clear form data
+        setNewCategoryName("");
+        setNewCategoryDesc("");
         
         return; // Success path
       } catch (directCreateError) {
@@ -296,19 +308,18 @@ const EmailView = () => {
         const updatedCategories = [...categories, newCategory];
         setCategories(updatedCategories);
         
-        // Re-categorize
-        await categorizeEmails();
-        
-        // Reset and close dialog
-        setNewCategoryName("");
-        setNewCategoryDesc("");
-        setNewCategoryDialog(false);
+        // Always do a full refresh to ensure we have the most current data
+        await fetchEmails();
         
         toast({
           title: "Category added (fixed method)",
           description: `New category "${newCategoryName}" has been created and your emails have been reorganized.`,
           variant: "default"
         });
+        
+        // Clear form data
+        setNewCategoryName("");
+        setNewCategoryDesc("");
         
         return; // Success through alternate method
       } catch (alternativeError) {
@@ -334,17 +345,25 @@ const EmailView = () => {
       const updatedCategories = [...categories, localCategory];
       setCategories(updatedCategories);
       
+      // Still try to categorize emails with the new category
+      try {
+        await categorizeEmails();
+      } catch (categorizationError) {
+        console.error("Error categorizing emails after local category creation:", categorizationError);
+      }
+      
       toast({
         title: "Category added (offline mode)",
         description: `Created "${newCategoryName}" in offline mode. This category may not persist between sessions.`,
         variant: "default"
       });
       
-      // Close dialog
+      // Clear form data
       setNewCategoryName("");
       setNewCategoryDesc("");
-      setNewCategoryDialog(false);
     } finally {
+      // Clear both loading states
+      setIsCreatingCategory(false);
       setIsCategorizing(false);
     }
   };
@@ -453,7 +472,16 @@ const EmailView = () => {
         
         {/* Email threads content */}
         <div className="flex-1 overflow-y-auto p-4">
-          {isCategorizing ? (
+          {isCreatingCategory ? (
+            <div className="flex flex-col items-center justify-center h-full">
+              <Loader2 className="h-10 w-10 text-purple-400 animate-spin mb-4" />
+              <h3 className="text-xl font-medium text-white mb-2">Creating New Category</h3>
+              <p className="text-gray-400 text-center max-w-md">
+                Creating your new email category and refreshing your inbox. 
+                This might take a moment...
+              </p>
+            </div>
+          ) : isCategorizing ? (
             <div className="flex flex-col items-center justify-center h-full">
               <Loader2 className="h-8 w-8 text-purple-400 animate-spin mb-4" />
               <p className="text-gray-400">Categorizing your emails with AI...</p>

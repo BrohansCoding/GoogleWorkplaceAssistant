@@ -323,11 +323,12 @@ export const getUserCategories = async (user: User): Promise<EmailCategoryType[]
         const categories: EmailCategoryType[] = [];
         
         // Log details about each bucket found
-        bucketsSnapshot.forEach((doc, index) => {
+        bucketsSnapshot.forEach((docSnapshot) => {
+          const index = categories.length;
           console.log(`Bucket ${index + 1}:`);
-          console.log("- Document ID:", doc.id);
+          console.log("- Document ID:", docSnapshot.id);
           
-          const data = doc.data();
+          const data = docSnapshot.data();
           console.log("- Data:", data);
           
           // Find a matching default category to get a color
@@ -337,8 +338,8 @@ export const getUserCategories = async (user: User): Promise<EmailCategoryType[]
           
           // Create category object for UI
           categories.push({
-            id: doc.id,
-            name: data.name || doc.id,
+            id: docSnapshot.id,
+            name: data.name || docSnapshot.id,
             description: data.description || "No description available",
             isDefault: false,
             color: matchingDefault?.color || '#64748B', // Get color from defaults or use slate
@@ -373,13 +374,14 @@ export const getUserCategories = async (user: User): Promise<EmailCategoryType[]
       if (!categoriesSnapshot.empty) {
         const categories: EmailCategoryType[] = [];
         
-        categoriesSnapshot.forEach((doc, index) => {
-          console.log(`Old category ${index + 1}:`, doc.id);
-          const data = doc.data();
+        categoriesSnapshot.forEach((docSnapshot) => {
+          const index = categories.length;
+          console.log(`Old category ${index + 1}:`, docSnapshot.id);
+          const data = docSnapshot.data();
           
           categories.push({
-            id: doc.id,
-            name: data.name || doc.id,
+            id: docSnapshot.id,
+            name: data.name || docSnapshot.id,
             description: data.description || "No description available",
             isDefault: data.isDefault || false,
             color: data.color || '#64748B',
