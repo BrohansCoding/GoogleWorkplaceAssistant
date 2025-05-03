@@ -7,8 +7,8 @@ import { AuthContext } from "@/components/SimpleAuthProvider";
 import { signOut as firebaseSignOut } from "@/lib/firebase";
 
 interface HeaderProps {
-  activeView: "calendar" | "folders" | "email";
-  setActiveView: (view: "calendar" | "folders" | "email") => void;
+  activeView: "calendar" | "folders" | "email" | "home";
+  setActiveView: (view: "calendar" | "folders" | "email" | "home") => void;
 }
 
 const Header = ({ activeView, setActiveView }: HeaderProps) => {
@@ -79,6 +79,19 @@ const Header = ({ activeView, setActiveView }: HeaderProps) => {
         
         {/* Navigation Tabs */}
         <div className="flex border-b border-gray-700">
+          <Button
+            variant="ghost"
+            className={`px-4 py-2 rounded-none text-sm font-medium ${
+              activeView === "home" 
+                ? "text-blue-400 border-b-2 border-blue-500 bg-transparent" 
+                : "text-gray-400 hover:text-blue-300 hover:bg-gray-800"
+            }`}
+            onClick={() => setActiveView("home")}
+          >
+            <Home className="mr-2 h-4 w-4" />
+            Home
+          </Button>
+        
           <Button
             variant="ghost"
             className={`px-4 py-2 rounded-none text-sm font-medium ${
