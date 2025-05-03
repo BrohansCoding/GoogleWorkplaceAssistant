@@ -18,46 +18,84 @@ export function registerGmailRoutes(app: Express): void {
       
       if (!token) {
         return res.status(401).json({ 
-          message: "Authentication required",
+          message: "Authentication required. Please sign in again.",
           code: "AUTH_REQUIRED"
         });
       }
       
-      // Fetch Gmail threads
-      console.log("Fetching Gmail threads...");
-      const threads = await fetchGmailThreads(token, parseInt(maxResults as string));
+      // Fetch Gmail threads with improved rate limiting handling
+      console.log("Fetching Gmail threads with rate limit handling...");
+      console.log(`Max results requested: ${maxResults}`);
       
-      // Convert GmailThread to EmailThreadType format
-      const emailThreads = threads.map((thread: any) => {
-        // Extract email properties from the thread
-        return {
-          id: thread.id,
-          threadId: thread.id,
-          snippet: thread.snippet || '',
-          subject: (thread as any).subject || '(No Subject)',
-          from: (thread as any).from || '',
-          date: (thread as any).date || new Date().toISOString(),
-          messages: thread.messages?.map((message: any) => ({
-            id: message.id,
-            threadId: message.threadId,
-            snippet: message.snippet || '',
-            payload: message.payload,
-            labelIds: message.labelIds,
-            internalDate: message.internalDate
-          })) || [],
-          labelIds: thread.messages?.[0]?.labelIds || []
-        };
-      });
+      // Limit max results to a reasonable number
+      const limitedMaxResults = Math.min(parseInt(maxResults as string), 200);
+      console.log(`Using limited max results: ${limitedMaxResults}`);
       
-      return res.status(200).json({ 
-        threads: emailThreads,
-        count: emailThreads.length
-      });
+      try {
+        const threads = await fetchGmailThreads(token, limitedMaxResults);
+        
+        // Convert GmailThread to EmailThreadType format
+        const emailThreads = threads.map((thread: any) => {
+          // Extract email properties from the thread
+          return {
+            id: thread.id,
+            threadId: thread.id,
+            snippet: thread.snippet || '',
+            subject: (thread as any).subject || '(No Subject)',
+            from: (thread as any).from || '',
+            date: (thread as any).date || new Date().toISOString(),
+            messages: thread.messages?.map((message: any) => ({
+              id: message.id,
+              threadId: message.threadId,
+              snippet: message.snippet || '',
+              payload: message.payload,
+              labelIds: message.labelIds,
+              internalDate: message.internalDate
+            })) || [],
+            labelIds: thread.messages?.[0]?.labelIds || []
+          };
+        });
+        
+        console.log(`Successfully processed ${emailThreads.length} email threads`);
+        
+        return res.status(200).json({ 
+          threads: emailThreads,
+          count: emailThreads.length,
+          status: "success"
+        });
+      } catch (fetchError: any) {
+        // Check specifically for rate limiting errors
+        if (fetchError.isAxiosError && fetchError.response && fetchError.response.status === 429) {
+          console.log("Rate limit reached on Gmail API, returning specific error");
+          return res.status(429).json({
+            message: "Rate limit reached. Please try again in a moment.",
+            code: "RATE_LIMIT_REACHED",
+            error: fetchError.message
+          });
+        }
+        
+        // If token is expired or invalid
+        if (fetchError.isAxiosError && fetchError.response && 
+            (fetchError.response.status === 401 || fetchError.response.status === 403)) {
+          console.log("Authentication error with Gmail API, token may be expired");
+          return res.status(401).json({
+            message: "Your Gmail authentication has expired. Please sign in again.",
+            code: "AUTH_EXPIRED",
+            error: fetchError.message
+          });
+        }
+        
+        // Re-throw for general handling
+        throw fetchError;
+      }
     } catch (error) {
       console.error("Error fetching Gmail threads:", error);
+      
+      // Provide a more user-friendly error message
       return res.status(500).json({ 
-        message: "Failed to fetch Gmail threads",
-        error: error instanceof Error ? error.message : String(error)
+        message: "We had trouble fetching your emails. Please try again in a moment.",
+        error: error instanceof Error ? error.message : String(error),
+        code: "GMAIL_FETCH_ERROR"
       });
     }
   });

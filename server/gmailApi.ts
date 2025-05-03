@@ -40,7 +40,26 @@ export interface GmailThread {
   messages: GmailMessage[];
 }
 
-// Function to fetch Gmail threads
+// Function to make a rate-limit aware API request
+async function makeGmailApiRequest(url: string, options: any, retries = 3, delay = 1000): Promise<any> {
+  try {
+    return await axios(url, options);
+  } catch (error) {
+    if (axios.isAxiosError(error) && error.response) {
+      // Check for rate limit (429) or server error (5xx)
+      if ((error.response.status === 429 || error.response.status >= 500) && retries > 0) {
+        console.log(`Rate limit hit (${error.response.status}). Retrying after ${delay}ms... (${retries} retries left)`);
+        // Wait using exponential backoff
+        await new Promise(resolve => setTimeout(resolve, delay));
+        // Retry with increased delay (exponential backoff)
+        return makeGmailApiRequest(url, options, retries - 1, delay * 2);
+      }
+    }
+    throw error;
+  }
+}
+
+// Function to fetch Gmail threads with rate limiting support
 export async function fetchGmailThreads(
   accessToken: string,
   maxResults: number = 100
@@ -51,10 +70,11 @@ export async function fetchGmailThreads(
   console.log(`- Token available: ${!!accessToken}`);
   
   try {
-    // First, fetch threads list
-    const threadsResponse = await axios.get(
+    // First, fetch threads list with rate limit awareness
+    const threadsResponse = await makeGmailApiRequest(
       `https://gmail.googleapis.com/gmail/v1/users/me/threads`,
       {
+        method: 'GET',
         headers: {
           Authorization: `Bearer ${accessToken}`,
         },
@@ -73,37 +93,85 @@ export async function fetchGmailThreads(
     // Log success
     console.log(`Retrieved ${threadsResponse.data.threads.length} Gmail threads`);
 
-    // Now fetch each thread with full messages
-    const threadPromises = threadsResponse.data.threads.map(async (thread: { id: string }) => {
-      const threadDetails = await axios.get(
-        `https://gmail.googleapis.com/gmail/v1/users/me/threads/${thread.id}`,
-        {
-          headers: {
-            Authorization: `Bearer ${accessToken}`,
-          },
-          params: {
-            format: 'metadata',
-            metadataHeaders: ['Subject', 'From', 'Date']
-          },
-        }
-      );
-
-      return threadDetails.data;
-    });
-
-    // Wait for all thread details to be fetched
-    const threads = await Promise.all(threadPromises);
+    // Now fetch each thread with full messages, but in batches to avoid rate limits
+    const batchSize = 10; // Process 10 threads at a time
+    let allThreads: any[] = [];
+    const threadIds = threadsResponse.data.threads.map((t: any) => t.id);
     
-    console.log(`Successfully retrieved ${threads.length} Gmail threads with details`);
+    // Process in batches
+    for (let i = 0; i < threadIds.length; i += batchSize) {
+      console.log(`Processing batch ${Math.floor(i/batchSize) + 1} of ${Math.ceil(threadIds.length/batchSize)}`);
+      
+      const batchIds = threadIds.slice(i, i + batchSize);
+      
+      // Create batch promises with slight delays between requests
+      const batchPromises = batchIds.map(async (threadId: string, index: number) => {
+        // Add a small delay between requests within the batch
+        if (index > 0) {
+          await new Promise(resolve => setTimeout(resolve, 200 * index));
+        }
+        
+        // Make the request with rate limit handling
+        return makeGmailApiRequest(
+          `https://gmail.googleapis.com/gmail/v1/users/me/threads/${threadId}`,
+          {
+            method: 'GET',
+            headers: {
+              Authorization: `Bearer ${accessToken}`,
+            },
+            params: {
+              format: 'metadata',
+              metadataHeaders: ['Subject', 'From', 'Date']
+            },
+          }
+        ).then(response => response.data);
+      });
+      
+      // Wait for this batch to complete
+      const batchResults = await Promise.all(batchPromises);
+      allThreads = [...allThreads, ...batchResults];
+      
+      // Add a delay between batches if we have more to process
+      if (i + batchSize < threadIds.length) {
+        console.log("Pausing between batches to avoid rate limiting...");
+        await new Promise(resolve => setTimeout(resolve, 1000));
+      }
+    }
+    
+    console.log(`Successfully retrieved ${allThreads.length} Gmail threads with details`);
 
     // Process the threads to extract useful info
-    return threads.map((thread) => {
+    return allThreads.map((thread) => {
+      // Check if thread has messages
+      if (!thread.messages || !thread.messages.length) {
+        console.log(`Thread ${thread.id} has no messages, skipping details extraction`);
+        return {
+          ...thread,
+          subject: '(No Subject)',
+          from: '',
+          date: '',
+        };
+      }
+      
       // Find the most recent message in the thread
       const latestMessage = thread.messages.reduce((latest: GmailMessage, current: GmailMessage) => {
         const latestDate = parseInt(latest.internalDate || '0');
         const currentDate = parseInt(current.internalDate || '0');
         return currentDate > latestDate ? current : latest;
       }, thread.messages[0]);
+
+      // Check if we have payload data
+      if (!latestMessage.payload || !latestMessage.payload.headers) {
+        console.log(`Message ${latestMessage.id} has no payload or headers, using default values`);
+        return {
+          ...thread,
+          latestMessage,
+          subject: '(No Subject)',
+          from: '',
+          date: '',
+          snippet: latestMessage.snippet || thread.snippet
+        };
+      }
 
       // Extract headers from the latest message
       const subject = latestMessage.payload?.headers.find((h: {name: string, value: string}) => h.name.toLowerCase() === 'subject')?.value || '(No Subject)';
