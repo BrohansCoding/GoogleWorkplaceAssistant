@@ -20,12 +20,10 @@ const Home = () => {
   
   console.log("Router: rendering with user:", user ? user.uid : "not authenticated");
   
-  // Automatically go to home screen when loaded
+  // Always start on home screen when component is loaded the first time
   useEffect(() => {
-    // Start on home screen if this is first load
-    if (activeView !== "home" && !user) {
-      setActiveView("home");
-    }
+    // Make sure we show the home view by default
+    setActiveView("home");
   }, []);
   
   // Home screen with agent cards

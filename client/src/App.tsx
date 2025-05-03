@@ -17,12 +17,8 @@ function Router() {
   
   console.log("Router: rendering with user:", user ? "authenticated" : "not authenticated");
   
-  // If no user, show login
-  if (!user) {
-    return <NewLoginButton />;
-  }
-  
-  // If authenticated, show the app
+  // Always show the app, even for unauthenticated users
+  // The Home component will handle showing the welcome page for unauthenticated users
   return (
     <Switch>
       <Route path="/" component={Home} />
