@@ -1,6 +1,5 @@
 import { EmailThreadType, EmailCategoryType } from '@shared/schema';
 import { getGoogleGmailToken } from './firebase';
-import { apiRequest } from './queryClient';
 
 /**
  * Fetch Gmail threads
@@ -16,12 +15,23 @@ export const fetchGmailThreads = async (maxResults: number = 100): Promise<Email
     }
 
     // Fetch the threads from our server endpoint
-    const response = await apiRequest({
-      url: `/api/gmail/threads?maxResults=${maxResults}`,
+    const url = `/api/gmail/threads?maxResults=${maxResults}`;
+    const response = await fetch(url, {
       method: 'GET',
+      credentials: 'include'
     });
 
-    return response.threads || [];
+    if (!response.ok) {
+      throw new Error(`Failed to fetch email threads: ${response.status} ${response.statusText}`);
+    }
+
+    const data = await response.json();
+    if (!data || !data.threads) {
+      console.error('Unexpected response format:', data);
+      return [];
+    }
+
+    return data.threads;
   } catch (error) {
     console.error('Error fetching Gmail threads:', error);
     throw error;
@@ -89,8 +99,7 @@ export const categorizeGmailThreads = async (
     }
 
     // Call the server endpoint for categorization
-    const response = await apiRequest({
-      url: '/api/gmail/categorize',
+    const response = await apiRequest('/api/gmail/categorize', {
       method: 'POST',
       data: {
         threads,
@@ -99,7 +108,12 @@ export const categorizeGmailThreads = async (
       }
     });
 
-    return response.categorizedThreads || [];
+    if (!response || !response.categorizedThreads) {
+      console.error('Unexpected categorization response format:', response);
+      return [];
+    }
+
+    return response.categorizedThreads;
   } catch (error) {
     console.error('Error categorizing Gmail threads:', error);
     throw error;

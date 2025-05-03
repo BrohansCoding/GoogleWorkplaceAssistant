@@ -1,6 +1,6 @@
 import type { Express, Request, Response } from "express";
 import { GmailCategorizeRequest } from "@shared/schema";
-import { fetchGmailThreads, categorizeThreadsWithGroq } from "./gmailApi";
+import { fetchGmailThreads, categorizeThreadsWithGroq, GmailThread } from "./gmailApi";
 import { getGroqCompletion } from "./groqApi";
 
 /**
@@ -27,9 +27,31 @@ export function registerGmailRoutes(app: Express): void {
       console.log("Fetching Gmail threads...");
       const threads = await fetchGmailThreads(token, parseInt(maxResults as string));
       
+      // Convert GmailThread to EmailThreadType format
+      const emailThreads = threads.map((thread: any) => {
+        // Extract email properties from the thread
+        return {
+          id: thread.id,
+          threadId: thread.id,
+          snippet: thread.snippet || '',
+          subject: (thread as any).subject || '(No Subject)',
+          from: (thread as any).from || '',
+          date: (thread as any).date || new Date().toISOString(),
+          messages: thread.messages?.map(message => ({
+            id: message.id,
+            threadId: message.threadId,
+            snippet: message.snippet || '',
+            payload: message.payload,
+            labelIds: message.labelIds,
+            internalDate: message.internalDate
+          })) || [],
+          labelIds: thread.messages?.[0]?.labelIds || []
+        };
+      });
+      
       return res.status(200).json({ 
-        threads,
-        count: threads.length
+        threads: emailThreads,
+        count: emailThreads.length
       });
     } catch (error) {
       console.error("Error fetching Gmail threads:", error);
@@ -68,7 +90,7 @@ export function registerGmailRoutes(app: Express): void {
       }));
       
       // Categorize threads using Groq
-      const categorizedThreads = await categorizeThreadsWithGroq(
+      const rawCategorizedThreads = await categorizeThreadsWithGroq(
         threads,
         categoriesConfig,
         // Pass the Groq completion function
@@ -80,6 +102,21 @@ export function registerGmailRoutes(app: Express): void {
         },
         customPrompt
       );
+      
+      // Format the categorized threads to ensure they match the EmailThreadType structure
+      const categorizedThreads = rawCategorizedThreads.map(categoryGroup => ({
+        category: categoryGroup.category,
+        threads: categoryGroup.threads.map((thread: any) => ({
+          id: thread.id,
+          threadId: thread.threadId || thread.id,
+          snippet: thread.snippet || '',
+          subject: thread.subject || '(No Subject)',
+          from: thread.from || '',
+          date: thread.date || new Date().toISOString(),
+          category: categoryGroup.category,
+          messages: thread.messages || []
+        }))
+      }));
       
       return res.status(200).json({ 
         categorizedThreads,
