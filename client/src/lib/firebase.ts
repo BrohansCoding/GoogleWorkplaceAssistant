@@ -89,8 +89,9 @@ const createGoogleProvider = () => {
   provider.addScope('https://www.googleapis.com/auth/calendar');           // Full access to Calendar
   provider.addScope('https://www.googleapis.com/auth/calendar.events');    // Full access to Events
   
-  // Add Drive access scope - limited to files/folders created or opened by the app
-  provider.addScope('https://www.googleapis.com/auth/drive.file');         // Access to files created/opened by the app
+  // Add Drive access scopes for full access to Drive files and folders
+  provider.addScope('https://www.googleapis.com/auth/drive');              // Full access to Drive
+  provider.addScope('https://www.googleapis.com/auth/drive.file');         // Access to files created/opened by the app (redundant but kept for compatibility)
   
   // Always include these basic scopes
   provider.addScope('profile');
@@ -410,8 +411,9 @@ export const forceReauthWithUpdatedScopes = async () => {
     // Store a message for the user explaining why they need to sign in again
     window.localStorage.setItem('AUTH_MESSAGE', 'You need to sign in again to grant permission to access selected Google Drive files.');
     
-    // Add a flag to indicate we need drive.file access
+    // Add a flag to indicate we need full drive access
     window.localStorage.setItem('NEED_DRIVE_ACCESS', 'true');
+    window.localStorage.setItem('NEED_FULL_DRIVE_ACCESS', 'true');
     
     // Sign out
     await signOut();

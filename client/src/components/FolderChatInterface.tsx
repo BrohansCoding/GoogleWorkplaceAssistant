@@ -124,7 +124,22 @@ const FolderChatInterface = ({ driveItem }: FolderChatInterfaceProps) => {
       });
 
       if (!response.ok) {
-        throw new Error(`Failed to get response: ${response.status}`);
+        // Try to get error details if available
+        let errorDetails = "";
+        try {
+          const errorData = await response.json();
+          errorDetails = errorData.message || errorData.error || "";
+        } catch (e) {
+          // Ignore JSON parsing errors
+        }
+
+        if (response.status === 403) {
+          throw new Error(`Permission denied: You don't have sufficient access rights to this file. (${errorDetails})`);
+        } else if (response.status === 401) {
+          throw new Error(`Authentication required: Please sign in again with full Drive permissions. (${errorDetails})`);
+        } else {
+          throw new Error(`Failed to get response: ${response.status} ${errorDetails}`);
+        }
       }
 
       const data = await response.json();
@@ -144,13 +159,31 @@ const FolderChatInterface = ({ driveItem }: FolderChatInterfaceProps) => {
       const errorMessage = error instanceof Error ? error.message : String(error);
       
       if (errorMessage.includes("403") || 
-          errorMessage.includes("401") || 
-          errorMessage.includes("permission")) {
+          errorMessage.includes("permission denied")) {
         
         toast({
-          title: "Permission Error",
-          description: "You don't have sufficient access to this file. The app can only access files you explicitly shared. Try re-authenticating or using a different file.",
+          title: "Google Drive Permission Error",
+          description: "You need to sign in again with full Drive access permissions. Please log out and sign in again.",
           variant: "destructive",
+          duration: 8000,
+        });
+        
+        // Add a message to explain the permission issue
+        const assistantMessage: ChatMessageType = {
+          role: 'assistant',
+          content: "I'm having trouble accessing this Drive item. It looks like you need to sign out and sign in again with full Drive permissions. Please try clicking your profile picture → Sign out, then sign in again and grant all permissions when prompted.",
+          timestamp: new Date(),
+        };
+        
+        setMessages((currentMessages) => [...currentMessages, assistantMessage]);
+        
+      } else if (errorMessage.includes("401") || 
+                errorMessage.includes("authentication")) {
+        toast({
+          title: "Authentication Error",
+          description: "Your session has expired. Please sign in again with full Drive access permissions.",
+          variant: "destructive",
+          duration: 8000,
         });
       } else {
         toast({
