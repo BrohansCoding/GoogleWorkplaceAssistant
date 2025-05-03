@@ -126,26 +126,11 @@ export function registerGmailRoutes(app: Express): void {
       console.log(`Categorizing ${threadsToProcess.length} threads into ${categories.length} categories`);
       
       // Format categories for Groq API - preserve isDefault flag
-      // Always ensure we have an "OTHER" category as the final fallback
       let categoriesConfig = categories.map(cat => ({
         name: cat.name,
         description: cat.description,
         isDefault: cat.isDefault === false ? false : true // Ensure custom buckets have isDefault: false
       }));
-      
-      // Check if we have an "OTHER" category, if not, add it
-      const hasOtherCategory = categoriesConfig.some(cat => 
-        cat.name.toUpperCase() === "OTHER" || cat.name.toLowerCase() === "other"
-      );
-      
-      if (!hasOtherCategory) {
-        console.log("Adding default 'OTHER' category as a fallback");
-        categoriesConfig.push({
-          name: "OTHER",
-          description: "Default category for emails that don't match any other category",
-          isDefault: true
-        });
-      }
       
       try {
         // Enhanced approach: Categorize threads using Groq with retry mechanism
@@ -250,7 +235,7 @@ export function registerGmailRoutes(app: Express): void {
     }
   });
   
-  // Delete a category and reassign its emails
+  // Delete a category and use AI to redistribute emails to remaining categories
   app.delete("/api/gmail/categories/:categoryId", async (req: Request, res: Response) => {
     try {
       const { categoryId } = req.params;
@@ -279,41 +264,91 @@ export function registerGmailRoutes(app: Express): void {
       // Remove the category we're deleting from the categories list
       const updatedCategories = categories.filter((cat: any) => cat.id !== categoryId);
       
-      // Make sure we have an OTHER category
-      let otherCategory = updatedCategories.find((cat: any) => 
-        cat.name.toUpperCase() === "OTHER" || cat.name.toLowerCase() === "other"
-      );
-      
-      if (!otherCategory) {
-        // Create an OTHER category if it doesn't exist
-        otherCategory = {
-          id: "other-" + Date.now().toString(),
-          name: "OTHER",
-          description: "Default category for emails that don't match any other category",
-          isDefault: true
-        };
-        updatedCategories.push(otherCategory);
+      // If there are no emails to reassign, we can skip the recategorization
+      if (emailsToReassign.length === 0 || updatedCategories.length === 0) {
+        // Return the updated data without modifying threads
+        return res.status(200).json({
+          success: true,
+          deletedCategory: categoryToDelete,
+          updatedCategories,
+          reassignedThreads: threads,
+          reassignedCount: 0
+        });
       }
       
-      // Reassign all emails from the deleted category to the OTHER category
-      const reassignedThreads = threads.map((thread: any) => {
-        if (thread.category === categoryToDelete.name) {
-          return {
-            ...thread,
-            category: otherCategory.name
-          };
-        }
-        return thread;
-      });
+      // Format categories for Groq API
+      const categoriesConfig = updatedCategories.map(cat => ({
+        name: cat.name,
+        description: cat.description,
+        isDefault: cat.isDefault === false ? false : true
+      }));
       
-      // Return the updated data
-      return res.status(200).json({
-        success: true,
-        deletedCategory: categoryToDelete,
-        updatedCategories,
-        reassignedThreads,
-        reassignedCount: emailsToReassign.length
-      });
+      try {
+        // Use Groq AI to re-categorize all threads with the updated category list
+        const rawCategorizedThreads = await categorizeThreadsWithGroq(
+          threads,
+          categoriesConfig,
+          // Use the same enhanced prompt as the regular categorization
+          async (messages: any[]) => {
+            return await getGroqEmailCategorization(
+              "You are an AI assistant that specializes in email categorization with a focus on custom categories. " +
+              "Your PRIMARY RESPONSIBILITY is to categorize emails into user-defined custom categories first, " +
+              "and only use default categories when there is absolutely no match with custom categories. " +
+              "Custom categories are marked with IsCustom: YES - these are HIGH PRIORITY and should be used " +
+              "when there is any reasonable semantic connection between the email content and the custom category. " +
+              "Consider the meaning and intent of the email beyond just keyword matching. " +
+              "Remember, the user specifically created these custom categories for their emails, " +
+              "so they should be favored over default categories whenever possible.",
+              messages
+            );
+          }
+        );
+        
+        // Convert the raw categorized data back to a flat list of threads
+        let reassignedThreads: any[] = [];
+        rawCategorizedThreads.forEach(categoryGroup => {
+          categoryGroup.threads.forEach((thread: any) => {
+            reassignedThreads.push({
+              ...thread,
+              category: categoryGroup.category
+            });
+          });
+        });
+        
+        // Return the updated data
+        return res.status(200).json({
+          success: true,
+          deletedCategory: categoryToDelete,
+          updatedCategories,
+          reassignedThreads,
+          reassignedCount: emailsToReassign.length
+        });
+      } catch (groqError) {
+        console.error("Groq API error during category deletion:", groqError);
+        
+        // If AI categorization fails, we need a fallback approach
+        // Simply distribute emails across remaining categories
+        let reassignedThreads = threads.map((thread: any) => {
+          if (thread.category === categoryToDelete.name) {
+            // Find a reasonable default category from remaining categories
+            const defaultCategory = updatedCategories.find(cat => cat.isDefault) || updatedCategories[0];
+            return {
+              ...thread,
+              category: defaultCategory.name
+            };
+          }
+          return thread;
+        });
+        
+        return res.status(200).json({
+          success: true,
+          deletedCategory: categoryToDelete,
+          updatedCategories,
+          reassignedThreads,
+          reassignedCount: emailsToReassign.length,
+          note: "Used fallback redistribution due to AI error"
+        });
+      }
     } catch (error) {
       console.error("Error deleting category:", error);
       return res.status(500).json({
