@@ -146,10 +146,14 @@ export function registerGmailRoutes(app: Express): void {
               // Use the specialized email categorization function with more AI guidance
               // for custom categories
               return await getGroqEmailCategorization(
-                "You are an AI assistant that specializes in email categorization. " +
-                "Your task is to categorize emails into the provided categories. " +
-                "Pay special attention to custom categories marked with IsCustom: YES " +
-                "and prioritize them when there's a good match based on the category name and description.",
+                "You are an AI assistant that specializes in email categorization with a focus on custom categories. " +
+                "Your PRIMARY RESPONSIBILITY is to categorize emails into user-defined custom categories first, " +
+                "and only use default categories when there is absolutely no match with custom categories. " +
+                "Custom categories are marked with IsCustom: YES - these are HIGH PRIORITY and should be used " +
+                "when there is any reasonable semantic connection between the email content and the custom category. " +
+                "Consider the meaning and intent of the email beyond just keyword matching. " +
+                "Remember, the user specifically created these custom categories for their emails, " +
+                "so they should be favored over default categories whenever possible.",
                 messages
               );
             } catch (groqError: any) {
@@ -160,10 +164,14 @@ export function registerGmailRoutes(app: Express): void {
                 await new Promise(resolve => setTimeout(resolve, 2000));
                 // Use specialized function for the retry as well
                 return await getGroqEmailCategorization(
-                  "You are an AI assistant that specializes in email categorization. " +
-                  "Your task is to categorize emails into the provided categories. " +
-                  "Pay special attention to custom categories marked with IsCustom: YES " +
-                  "and prioritize them when there's a good match based on the category name and description.",
+                  "You are an AI assistant that specializes in email categorization with a focus on custom categories. " +
+                  "Your PRIMARY RESPONSIBILITY is to categorize emails into user-defined custom categories first, " +
+                  "and only use default categories when there is absolutely no match with custom categories. " +
+                  "Custom categories are marked with IsCustom: YES - these are HIGH PRIORITY and should be used " +
+                  "when there is any reasonable semantic connection between the email content and the custom category. " +
+                  "Consider the meaning and intent of the email beyond just keyword matching. " +
+                  "Remember, the user specifically created these custom categories for their emails, " +
+                  "so they should be favored over default categories whenever possible.",
                   messages
                 );
               }

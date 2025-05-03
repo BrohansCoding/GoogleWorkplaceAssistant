@@ -259,6 +259,10 @@ export async function categorizeThreadsWithGroq(
             return `Email ${idx + 1}:\nFrom: ${from}\nSubject: ${subject}\nContent: ${snippet}`;
           }).join('\n\n');
           
+          // Incorporate custom prompt if provided
+          const customInstructions = customPrompt ? 
+            `\nUSER INSTRUCTIONS: ${customPrompt}\n` : '';
+            
           const prompt = `You are an expert email categorization system. Your primary responsibility is to categorize emails into custom user-created categories when they match, and only use default categories as a fallback.
 
 CATEGORIES (in priority order):
@@ -269,7 +273,8 @@ CATEGORIZATION RULES:
 2. Look for specific keywords, phrases, or themes from custom category descriptions in the email content.
 3. Only use default categories (IsCustom: no) when NO custom category is a reasonable match.
 4. Be precise and thorough in your matching - consider the full context of custom categories.
-
+5. Look for semantic meaning beyond exact keyword matching - understand the intent and content of emails.
+${customInstructions}
 EMAILS TO CATEGORIZE:
 ${emailTexts}
 
@@ -471,21 +476,47 @@ function categorizeEmailWithRules(
   }
   
   // Find the category with the highest score
+  // But also give custom categories an advantage
   let bestCategory = categoriesConfig[0];
   let highestScore = 0;
+  let highestCustomScore = 0;
+  let bestCustomCategory = null;
   
   // Log all category scores for this email
   console.log(`\nRule-based scoring for email: "${subject.substring(0, 30)}..."`);
   
   Object.entries(categoryScores).forEach(([categoryName, score]) => {
-    const isCustom = categoriesConfig.find(c => c.name === categoryName)?.isDefault === false;
-    console.log(`- ${categoryName}${isCustom ? ' (custom)' : ''}: ${score} points`);
+    const category = categoriesConfig.find(c => c.name === categoryName);
+    const isCustom = category?.isDefault === false;
     
+    // Add a small boost to ALL custom categories to increase their chances
+    if (isCustom) {
+      score += 3; // Small boost just for being a custom category
+    }
+    
+    console.log(`- ${categoryName}${isCustom ? ' (custom)' : ''}: ${score} points${isCustom ? ' (includes custom boost)' : ''}`);
+    
+    // Keep track of the best custom category separately
+    if (isCustom && score > highestCustomScore) {
+      highestCustomScore = score;
+      bestCustomCategory = category;
+    }
+    
+    // Also track overall highest score
     if (score > highestScore) {
       highestScore = score;
-      bestCategory = categoriesConfig.find(c => c.name === categoryName) || categoriesConfig[0];
+      bestCategory = category || categoriesConfig[0];
     }
   });
+  
+  // If the best custom category has a reasonable score (at least 40% of highest),
+  // and there's any score at all, prioritize it even if not the absolute highest
+  if (bestCustomCategory && highestCustomScore > 0 && 
+      highestCustomScore >= Math.max(5, highestScore * 0.4)) {
+    console.log(`Prioritizing custom category ${bestCustomCategory.name} (score: ${highestCustomScore}) over default category with score ${highestScore}`);
+    bestCategory = bestCustomCategory;
+    highestScore = highestCustomScore;
+  }
   
   // Log the winning category
   console.log(`Selected category: ${bestCategory.name} (score: ${highestScore})`);
