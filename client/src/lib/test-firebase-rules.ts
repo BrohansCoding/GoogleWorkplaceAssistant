@@ -13,6 +13,30 @@ import { User } from "firebase/auth";
 
 /**
  * Tests if Firestore read/write is working with current security rules
+ * 
+ * Recommended security rules:
+ * ```
+ * rules_version = '2';
+ * service cloud.firestore {
+ *   match /databases/{database}/documents {
+ *     // Allow authenticated users to read/write their own data
+ *     match /users/{userId} {
+ *       allow read, write: if request.auth != null && request.auth.uid == userId;
+ *       
+ *       // Allow users to read/write their own customBuckets
+ *       match /customBuckets/{bucketId} {
+ *         allow read, write: if request.auth != null && request.auth.uid == userId;
+ *       }
+ *       
+ *       // Allow users to read/write their old emailCategories (for backward compatibility)
+ *       match /emailCategories/{categoryId} {
+ *         allow read, write: if request.auth != null && request.auth.uid == userId;
+ *       }
+ *     }
+ *   }
+ * }
+ * ```
+ * 
  * @param user Firebase user object
  */
 export async function testFirestoreRules(user: User | null) {
@@ -31,27 +55,36 @@ export async function testFirestoreRules(user: User | null) {
   
   // Test collections to try
   const testPaths = [
-    // Test user subcollection
+    // Test user document
     {
-      path: `users/${user.uid}/test`,
-      id: "test-doc",
-      data: { test: true, timestamp: serverTimestamp() }
-    },
-    // Test email categories
-    {
-      path: "emailCategories",
-      id: `${user.uid}_test-category`,
+      path: `users`,
+      id: user.uid,
       data: { 
-        name: "Test Category", 
-        userId: user.uid,
-        timestamp: serverTimestamp()
+        email: user.email,
+        displayName: user.displayName,
+        timestamp: serverTimestamp() 
       }
     },
-    // Test direct collection
+    // Test customBuckets subcollection (new structure)
     {
-      path: "test_collection",
-      id: user.uid,
-      data: { uid: user.uid, timestamp: serverTimestamp() }
+      path: `users/${user.uid}/customBuckets`,
+      id: "test-bucket",
+      data: { 
+        name: "Test Bucket", 
+        description: "A test bucket for verifying security rules",
+        createdAt: serverTimestamp()
+      }
+    },
+    // Test old email categories subcollection (for backward compatibility)
+    {
+      path: `users/${user.uid}/emailCategories`,
+      id: "test-category",
+      data: { 
+        name: "Test Category", 
+        description: "A test category",
+        isDefault: false,
+        timestamp: serverTimestamp()
+      }
     }
   ];
   
@@ -112,7 +145,7 @@ export async function testFirestoreRules(user: User | null) {
     success: allSuccessful,
     results,
     message: allSuccessful 
-      ? "Firebase security rules are correctly configured! You can now create and access email categories."
-      : "Some Firebase security rules tests failed. Please check the console for details."
+      ? "Firebase security rules are correctly configured! You can now create and access custom email buckets."
+      : "Some Firebase security rules tests failed. Please check the console for details and update your security rules to match the recommended pattern."
   };
 }

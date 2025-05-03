@@ -52,16 +52,16 @@ export const DEFAULT_EMAIL_CATEGORIES: EmailCategoryType[] = [
 ];
 
 /**
- * Initialize user's email categories in Firestore
- * If no categories exist, creates the default set
+ * Initialize user's email category buckets in Firestore
+ * If no buckets exist, creates the default set
  */
 export const initializeUserCategories = async (user: User): Promise<EmailCategoryType[]> => {
   if (!user) {
-    console.error("Cannot initialize categories: No user provided");
+    console.error("Cannot initialize buckets: No user provided");
     return DEFAULT_EMAIL_CATEGORIES;
   }
 
-  console.log("Initializing categories for user:", user.email);
+  console.log("Initializing buckets for user:", user.email);
 
   // Create user document first if it doesn't exist
   try {
@@ -79,74 +79,50 @@ export const initializeUserCategories = async (user: User): Promise<EmailCategor
     }
   } catch (userDocError) {
     console.warn("Error creating user document:", userDocError);
-    // Continue anyway, we'll try the alternative approach
+    // Continue anyway, we'll try again
   }
 
-  // First approach: Try to create in subcollection
+  // Create buckets in customBuckets subcollection (new structure)
   try {
-    console.log("Approach 1: Creating categories in user subcollection");
-    // Create categories in user subcollection
-    const categoriesRef = collection(db, "users", user.uid, "emailCategories");
+    console.log("Creating buckets in customBuckets subcollection");
+    // Create buckets in user subcollection
+    const bucketsRef = collection(db, "users", user.uid, "customBuckets");
     
     const creationPromises = DEFAULT_EMAIL_CATEGORIES.map(category => {
-      return setDoc(doc(categoriesRef, category.id), {
-        ...category,
-        userId: user.uid
+      // Only store name, description, and createdAt as requested
+      return setDoc(doc(bucketsRef, category.id), {
+        name: category.name,
+        description: category.description,
+        createdAt: serverTimestamp()
       });
     });
     
     await Promise.all(creationPromises);
-    console.log(`Created ${DEFAULT_EMAIL_CATEGORIES.length} default categories in subcollection`);
+    console.log(`Created ${DEFAULT_EMAIL_CATEGORIES.length} default buckets`);
     
-    // Return the categories with userId
+    // Return the categories with userId for the UI
     return DEFAULT_EMAIL_CATEGORIES.map(category => ({
       ...category,
       userId: user.uid
     }));
-  } catch (subcollectionError) {
-    console.warn("Error creating categories in subcollection:", subcollectionError);
+  } catch (error) {
+    console.error("Error creating buckets:", error);
     
-    // Second approach: Create in direct collection
-    try {
-      console.log("Approach 2: Creating categories in direct collection");
-      const directCategoriesRef = collection(db, "emailCategories");
-      
-      const creationPromises = DEFAULT_EMAIL_CATEGORIES.map(category => {
-        const docId = `${user.uid}_${category.id}`;
-        return setDoc(doc(directCategoriesRef, docId), {
-          ...category,
-          userId: user.uid,
-          userEmail: user.email
-        });
-      });
-      
-      await Promise.all(creationPromises);
-      console.log(`Created ${DEFAULT_EMAIL_CATEGORIES.length} default categories in direct collection`);
-      
-      // Return the categories with userId
-      return DEFAULT_EMAIL_CATEGORIES.map(category => ({
-        ...category,
-        userId: user.uid
-      }));
-    } catch (directCollectionError) {
-      console.error("Error creating categories in direct collection:", directCollectionError);
-      
-      // All Firebase attempts failed, return default categories
-      console.log("Returning default categories (offline mode)");
-      return DEFAULT_EMAIL_CATEGORIES.map(category => ({
-        ...category,
-        userId: user.uid
-      }));
-    }
+    // Firebase attempt failed, return default categories for UI
+    console.log("Returning default categories (offline mode)");
+    return DEFAULT_EMAIL_CATEGORIES.map(category => ({
+      ...category,
+      userId: user.uid
+    }));
   }
 };
 
 /**
- * Create a new custom email category
+ * Create a new custom email category bucket
  * @param user Current authenticated user
- * @param name Category name
- * @param description Category description
- * @param color Optional color for the category (hex code)
+ * @param name Category/bucket name
+ * @param description Category/bucket description
+ * @param color Optional color for the category (hex code) - only used in UI, not stored in DB
  * @returns The newly created category
  */
 export const createCustomCategory = async (
@@ -156,31 +132,15 @@ export const createCustomCategory = async (
   color?: string
 ): Promise<EmailCategoryType> => {
   if (!user) {
-    throw new Error("Cannot create category: No authenticated user");
+    throw new Error("Cannot create bucket: No authenticated user");
   }
   
-  console.log("Creating custom category with user:", user.email);
+  console.log("Creating custom bucket with user:", user.email);
   console.log("User UID:", user.uid);
   
   try {
     // Generate a clean ID from the name
-    const id = name.toLowerCase().replace(/\s+/g, '-');
-    
-    // Create the category object
-    const newCategory: EmailCategoryType = {
-      id,
-      name,
-      description,
-      isDefault: false,
-      color: color || '#64748B', // slate (default color)
-      userId: user.uid
-    };
-    
-    console.log("New category object to be saved:", { 
-      id: newCategory.id,
-      name: newCategory.name,
-      path: `users/${user.uid}/emailCategories/${id}`
-    });
+    const bucketId = name.toLowerCase().replace(/\s+/g, '-');
     
     try {
       // First try creating user document if it doesn't exist
@@ -197,34 +157,36 @@ export const createCustomCategory = async (
         console.log("User document created");
       }
       
-      // Now create the category document
+      // Now create the bucket document in customBuckets subcollection (instead of emailCategories)
+      // Only storing name, description, and createdAt as requested
       await setDoc(
-        doc(db, "users", user.uid, "emailCategories", id), 
-        newCategory
+        doc(db, "users", user.uid, "customBuckets", bucketId), 
+        {
+          name,
+          description,
+          createdAt: serverTimestamp()
+        }
       );
       
-      console.log(`Created new category "${name}" for user ${user.uid}`);
-      return newCategory;
+      console.log(`Created new bucket "${name}" for user ${user.uid}`);
+      
+      // Return the complete category object for UI
+      return {
+        id: bucketId,
+        name,
+        description,
+        isDefault: false,
+        color: color || '#64748B', // slate (default color)
+        userId: user.uid
+      };
     } catch (innerError) {
       console.error("Detailed Firestore error:", innerError);
-      
-      // Try with a different approach - create as a nested object
-      console.log("Trying alternative approach to create category...");
-      
-      // Store category as a field in a user document
-      await setDoc(doc(db, "emailCategories", user.uid + "_" + id), {
-        ...newCategory,
-        userId: user.uid,
-        userEmail: user.email
-      });
-      
-      console.log("Category created using alternative storage method");
-      return newCategory;
+      throw innerError;
     }
   } catch (error) {
-    console.error("All attempts to create category failed:", error);
+    console.error("Failed to create bucket:", error);
     
-    // Return the category object anyway, but store it locally
+    // Return the category object anyway for UI, but store it locally
     // This way the UI still works even if Firebase storage fails
     const newCategory: EmailCategoryType = {
       id: name.toLowerCase().replace(/\s+/g, '-'),
@@ -235,13 +197,13 @@ export const createCustomCategory = async (
       userId: user.uid
     };
     
-    console.log("Returning local category object:", newCategory);
+    console.log("Returning local bucket object:", newCategory);
     return newCategory;
   }
 };
 
 /**
- * Get all categories for a user (custom + default)
+ * Get all category buckets for a user (custom + default)
  */
 export const getUserCategories = async (user: User): Promise<EmailCategoryType[]> => {
   if (!user) {
@@ -249,57 +211,68 @@ export const getUserCategories = async (user: User): Promise<EmailCategoryType[]
     return DEFAULT_EMAIL_CATEGORIES;
   }
   
-  console.log("Getting categories for user:", user.email);
+  console.log("Getting category buckets for user:", user.email);
   
   try {
-    // First approach: Try to get from Firestore subcollection
-    console.log("Approach 1: Checking user subcollection");
-    const categoriesRef = collection(db, "users", user.uid, "emailCategories");
+    // First try getting from customBuckets subcollection (new structure)
+    console.log("Checking customBuckets subcollection");
+    const bucketsRef = collection(db, "users", user.uid, "customBuckets");
     
     try {
+      const bucketsSnapshot = await getDocs(bucketsRef);
+      
+      if (!bucketsSnapshot.empty) {
+        const categories: EmailCategoryType[] = [];
+        
+        bucketsSnapshot.forEach(doc => {
+          const data = doc.data();
+          
+          // Find a matching default category to get a color
+          const matchingDefault = DEFAULT_EMAIL_CATEGORIES.find(
+            c => c.name.toLowerCase() === data.name.toLowerCase()
+          );
+          
+          // Create category object for UI
+          categories.push({
+            id: doc.id,
+            name: data.name,
+            description: data.description,
+            isDefault: false,
+            color: matchingDefault?.color || '#64748B', // Get color from defaults or use slate
+            userId: user.uid
+          });
+        });
+        
+        console.log(`Loaded ${categories.length} custom buckets`);
+        return categories;
+      }
+    } catch (bucketsError) {
+      console.warn("Error accessing customBuckets:", bucketsError);
+    }
+    
+    // Fallback: check in old emailCategories location
+    console.log("Fallback: Checking emailCategories subcollection");
+    try {
+      const categoriesRef = collection(db, "users", user.uid, "emailCategories");
       const categoriesSnapshot = await getDocs(categoriesRef);
       
-      // If categories exist in the subcollection, return them
       if (!categoriesSnapshot.empty) {
         const categories: EmailCategoryType[] = [];
         categoriesSnapshot.forEach(doc => {
           categories.push(doc.data() as EmailCategoryType);
         });
-        console.log(`Loaded ${categories.length} categories from subcollection`);
+        console.log(`Loaded ${categories.length} categories from old subcollection`);
         return categories;
       }
     } catch (subCollectionError) {
-      console.warn("Error accessing subcollection:", subCollectionError);
-    }
-    
-    // Second approach: Try to get from direct collection with user prefix
-    console.log("Approach 2: Checking direct collection with user prefix");
-    try {
-      const directCategoriesRef = collection(db, "emailCategories");
-      const userCategoriesQuery = query(
-        directCategoriesRef, 
-        where("userId", "==", user.uid)
-      );
-      
-      const directCategoriesSnapshot = await getDocs(userCategoriesQuery);
-      
-      if (!directCategoriesSnapshot.empty) {
-        const categories: EmailCategoryType[] = [];
-        directCategoriesSnapshot.forEach(doc => {
-          categories.push(doc.data() as EmailCategoryType);
-        });
-        console.log(`Loaded ${categories.length} categories from direct collection`);
-        return categories;
-      }
-    } catch (directCollectionError) {
-      console.warn("Error accessing direct collection:", directCollectionError);
+      console.warn("Error accessing old subcollection:", subCollectionError);
     }
     
     // If we get here, no categories were found in either location
-    console.log("No categories found, initializing defaults");
+    console.log("No buckets found, initializing defaults");
     return initializeUserCategories(user);
   } catch (error) {
-    console.error("All attempts to get categories failed:", error);
+    console.error("All attempts to get buckets failed:", error);
     // Always fall back to default categories if everything fails
     return DEFAULT_EMAIL_CATEGORIES;
   }
