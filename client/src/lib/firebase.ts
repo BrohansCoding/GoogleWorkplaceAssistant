@@ -89,7 +89,9 @@ const createGoogleProvider = () => {
   provider.addScope('https://www.googleapis.com/auth/calendar');           // Full access to Calendar
   provider.addScope('https://www.googleapis.com/auth/calendar.events');    // Full access to Events
   
-  // Adding Google Drive scopes for file access
+  // Add comprehensive Drive access scopes
+  provider.addScope('https://www.googleapis.com/auth/drive');              // Full access to all Drive files & folders
+  provider.addScope('https://www.googleapis.com/auth/drive.file');         // Access to files created/opened by the app
   provider.addScope('https://www.googleapis.com/auth/drive.readonly');     // Read-only access to Drive files
   provider.addScope('https://www.googleapis.com/auth/drive.metadata.readonly'); // Read-only access to Drive metadata
   

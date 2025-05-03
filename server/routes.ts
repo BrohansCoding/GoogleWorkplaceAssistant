@@ -7,7 +7,9 @@ import { getGroqCompletion } from "./groqApi";
 import {
   getGoogleDriveFileMetadata,
   getGoogleDriveFileContent,
-  extractFileIdFromUrl
+  getGoogleDriveFolderContents,
+  extractFileIdFromUrl,
+  extractIdFromUrl
 } from "./driveApi";
 
 export async function registerRoutes(app: Express): Promise<Server> {
