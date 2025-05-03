@@ -79,16 +79,33 @@ export const clearOAuthToken = () => {
   console.log('OAuth token cleared from storage');
 };
 
-// Create Google Auth Provider with proper Calendar and Drive scopes
-const createGoogleProvider = () => {
+// Create Google Auth Provider with Calendar scopes only
+const createGoogleCalendarProvider = () => {
   const provider = new GoogleAuthProvider();
   
-  // ALWAYS request full access to calendars and drive to avoid re-authentication later
   // These are the EXACT scopes needed for Google Calendar API with write access
-  console.log('Creating Google provider with FULL permissions for calendar and drive...');
+  console.log('Creating Google provider with FULL permissions for calendar...');
   provider.addScope('https://www.googleapis.com/auth/calendar');           // Full access to Calendar
   provider.addScope('https://www.googleapis.com/auth/calendar.events');    // Full access to Events
   
+  // Always include these basic scopes
+  provider.addScope('profile');
+  provider.addScope('email');
+  
+  // Force consent screen to ensure we get all permissions and refresh token
+  provider.setCustomParameters({
+    prompt: 'consent',
+    access_type: 'offline'
+  });
+  
+  return provider;
+};
+
+// Create Google Auth Provider specifically for Drive access
+const createGoogleDriveProvider = () => {
+  const provider = new GoogleAuthProvider();
+  
+  console.log('Creating Google provider with FULL permissions for Drive...');
   // Add Drive access scopes for full access to Drive files and folders
   provider.addScope('https://www.googleapis.com/auth/drive');              // Full access to Drive
   provider.addScope('https://www.googleapis.com/auth/drive.file');         // Access to files created/opened by the app (redundant but kept for compatibility)
@@ -105,6 +122,9 @@ const createGoogleProvider = () => {
   
   return provider;
 };
+
+// Default provider for backward compatibility
+const createGoogleProvider = createGoogleCalendarProvider;
 
 // Check for redirect result on page load
 export const checkRedirectResult = async () => {
@@ -398,6 +418,101 @@ export const getGoogleCalendarToken = async (): Promise<string | null> => {
 // Listen to auth state changes
 export const onAuthChange = (callback: (user: User | null) => void) => {
   return onAuthStateChanged(auth, callback);
+};
+
+// Special function for Drive authentication
+export const signInWithGoogleDriveScope = async () => {
+  try {
+    console.log("Starting Google sign-in with explicit DRIVE API scopes...");
+    
+    // Create provider with Drive-specific scopes
+    const driveProvider = createGoogleDriveProvider();
+    
+    // Store that we're specifically authenticating for Drive
+    window.localStorage.setItem('AUTH_TYPE', 'DRIVE');
+    
+    // Try to use popup which is more reliable in many environments
+    const result = await signInWithPopup(auth, driveProvider);
+    console.log("Sign in with popup successful for Drive access:", result.user.displayName);
+    
+    // Get OAuth token for Google Drive API
+    const credential = GoogleAuthProvider.credentialFromResult(result);
+    const oauthToken = credential?.accessToken;
+    
+    if (!oauthToken) {
+      console.error("Failed to get OAuth token from Google sign-in for Drive!");
+      return { success: false, error: "No OAuth token received for Drive access" };
+    }
+    
+    console.log("OAuth token for Drive received:", {
+      exists: !!oauthToken,
+      length: oauthToken?.length
+    });
+    
+    // Store OAuth token with Drive prefix to differentiate
+    storeOAuthToken(oauthToken);
+    
+    // Get Firebase ID token for our backend
+    let idToken = null;
+    try {
+      idToken = await getIdToken(result.user, true);
+      console.log("Firebase ID token received for Drive auth");
+    } catch (err) {
+      console.error("Error getting Firebase ID token:", err);
+    }
+    
+    // Send tokens to server with explicit Drive flag
+    try {
+      console.log("Sending Drive tokens to server...");
+      const response = await fetch('/api/auth/google', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          oauthToken,   // This token has full Drive scope
+          idToken,      // Firebase auth
+          isDriveAuth: true, // Explicitly mark as Drive auth
+          user: {
+            uid: result.user.uid,
+            displayName: result.user.displayName,
+            email: result.user.email,
+            photoURL: result.user.photoURL
+          }
+        }),
+        credentials: 'include'
+      });
+      
+      if (!response.ok) {
+        console.error("Server Drive auth failed:", await response.text());
+      } else {
+        console.log("Server Drive auth succeeded");
+      }
+    } catch (err) {
+      console.error("Error sending Drive tokens to server:", err);
+    }
+    
+    return { 
+      success: true, 
+      user: result.user,
+      oauthToken,
+      idToken,
+      forDrive: true
+    };
+  } catch (error) {
+    console.error("Error signing in with Google popup for Drive:", error);
+    
+    // Fall back to redirect method if popup fails
+    try {
+      console.log("Popup failed for Drive auth, trying redirect method instead");
+      const driveProvider = createGoogleDriveProvider();
+      // Store that we're specifically authenticating for Drive in redirect flow
+      window.localStorage.setItem('AUTH_TYPE', 'DRIVE');
+      await signInWithRedirect(auth, driveProvider);
+      return { success: true, redirecting: true };
+    } catch (redirectError) {
+      console.error("Drive redirect method also failed:", redirectError);
+      return { success: false, error: redirectError };
+    }
+  }
 };
 
 // Force re-authentication with updated scopes to get write permission

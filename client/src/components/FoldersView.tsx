@@ -1,11 +1,13 @@
-import { useContext, useState, FormEvent } from "react";
-import { MessageSquare, Folder, X, FileText, Search } from "lucide-react";
+import { useContext, useState, FormEvent, useEffect } from "react";
+import { MessageSquare, Folder, X, FileText, Search, Info } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import FolderChatInterface from "@/components/FolderChatInterface";
 import { MobileContext } from "@/context/MobileContext";
 import { useToast } from "@/hooks/use-toast";
 import { forceReauthWithUpdatedScopes } from "@/lib/firebase";
+import DriveAuthButton from "@/components/DriveAuthButton";
+import { useAuth } from "@/hooks/useAuth";
 
 // Define interface for Drive item metadata
 interface DriveItemMetadata {
@@ -19,14 +21,26 @@ interface DriveItemMetadata {
 
 const FoldersView = () => {
   const mobileContext = useContext(MobileContext);
+  const { user } = useAuth();
   const [showChat, setShowChat] = useState(true);
   const [driveUrl, setDriveUrl] = useState<string>("");
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [currentDriveItem, setCurrentDriveItem] = useState<DriveItemMetadata | null>(null);
+  const [hasDriveAuth, setHasDriveAuth] = useState<boolean>(false);
   const { toast } = useToast();
   
   // Get mobile state safely
   const isMobile = mobileContext?.isMobile || false;
+  
+  // Function to handle successful Drive authentication
+  const handleDriveAuthSuccess = () => {
+    setHasDriveAuth(true);
+    toast({
+      title: "Drive Access Granted",
+      description: "You can now access your Google Drive files and folders.",
+      variant: "default",
+    });
+  };
 
   // Extract the file/folder ID from a Google Drive URL
   const extractIdFromUrl = (url: string): string | null => {
@@ -178,8 +192,24 @@ const FoldersView = () => {
             Note: Due to Google's permission model, this app can only access files and folders that you've explicitly opened with it. The app cannot see your entire Drive.
           </p>
           
+          {/* Drive Authentication Section */}
+          <div className="mb-5 p-4 bg-emerald-900/20 border border-emerald-900/30 rounded-lg">
+            <div className="flex flex-col items-center">
+              <div className="mb-3 text-center">
+                <h3 className="text-md font-semibold text-emerald-400 mb-1">Step 1: Connect to Google Drive</h3>
+                <p className="text-sm text-gray-300 mb-2">
+                  First, grant this app permission to access your Google Drive files
+                </p>
+                <DriveAuthButton onAuthSuccess={handleDriveAuthSuccess} />
+              </div>
+              <div className="w-full border-t border-emerald-900/30 my-3"></div>
+              <p className="text-xs text-gray-400 mb-2">This permission is separate from Calendar access</p>
+            </div>
+          </div>
+          
           {/* Google Drive URL Form */}
           <form onSubmit={handleSubmit} className="mb-5">
+            <h3 className="text-md font-semibold text-emerald-400 mb-3">Step 2: Enter a Drive File or Folder URL</h3>
             <div className="relative">
               <Input
                 type="text"
