@@ -17,7 +17,8 @@ const DriveAuthButton = ({ onAuthSuccess }: DriveAuthButtonProps) => {
   const handleDriveAuth = async () => {
     setIsLoading(true);
     try {
-      // Call specialized function for Drive authentication
+      // We could use signInWithGoogle() here since it now includes Drive scopes,
+      // but keeping the specialized function for consistency and potential future changes
       const result = await signInWithGoogleDriveScope();
       
       if (result.success) {

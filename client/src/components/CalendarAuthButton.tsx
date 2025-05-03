@@ -15,13 +15,13 @@ const CalendarAuthButton = ({ onAuthSuccess }: CalendarAuthButtonProps) => {
   const handleCalendarAuth = async () => {
     setIsLoading(true);
     try {
-      // Call specialized function for Calendar authentication
+      // Call standard function for authentication which now includes both Calendar and Drive scopes
       const result = await signInWithGoogle();
       
       if (result.success) {
         toast({
-          title: "Calendar Access Granted",
-          description: "You can now access your Google Calendar events.",
+          title: "Google Services Access Granted",
+          description: "You can now access your Google Calendar events and Drive files.",
           variant: "default",
         });
         

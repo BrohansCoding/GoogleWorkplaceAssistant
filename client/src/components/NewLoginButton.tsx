@@ -47,9 +47,9 @@ const NewLoginButton = () => {
   return (
     <div className="flex flex-col items-center justify-center h-screen bg-background">
       <div className="text-center p-8 max-w-md">
-        <h1 className="text-3xl font-bold mb-2 text-foreground">Calendar Agent</h1>
+        <h1 className="text-3xl font-bold mb-2 text-foreground">Assistant</h1>
         <p className="text-muted-foreground mb-8">
-          Your intelligent assistant for Google Calendar management
+          Your intelligent assistant for Google Calendar and Drive
         </p>
         
         <div className="w-64 h-64 mx-auto mb-8 rounded-full bg-card flex items-center justify-center border border-border shadow-lg">
@@ -73,7 +73,7 @@ const NewLoginButton = () => {
         </Button>
         
         <p className="mt-6 text-sm text-muted-foreground">
-          We'll access your Google Calendar to provide personalized assistance
+          We'll access your Google Calendar and Drive to provide personalized assistance
         </p>
       </div>
     </div>
