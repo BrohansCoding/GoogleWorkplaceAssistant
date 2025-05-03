@@ -3,12 +3,13 @@ import { Mail, Plus, X, Inbox, Loader2, Settings, Tag, RefreshCw } from "lucide-
 import { useAuth } from "@/hooks/useAuth";
 import EmailAuthButton from "./EmailAuthButton";
 import { Button } from "@/components/ui/button";
+import { fetchGmailThreads, categorizeGmailThreads } from "@/lib/gmailApi";
 import { 
-  fetchGmailThreads, 
-  categorizeGmailThreads, 
-  DEFAULT_EMAIL_CATEGORIES,
-  createCustomCategory
-} from "@/lib/gmailApi";
+  getUserCategories, 
+  createCustomCategory, 
+  initializeUserCategories,
+  DEFAULT_EMAIL_CATEGORIES 
+} from "@/lib/emailCategories";
 import { EmailThreadType, EmailCategoryType } from "@shared/schema";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
@@ -25,6 +26,26 @@ const EmailView = () => {
   const [newCategoryDialog, setNewCategoryDialog] = useState(false);
   const [newCategoryName, setNewCategoryName] = useState("");
   const [newCategoryDesc, setNewCategoryDesc] = useState("");
+  
+  // Load user's categories from Firebase
+  useEffect(() => {
+    const loadUserCategories = async () => {
+      if (!user) return;
+      
+      try {
+        console.log("Loading user categories from Firebase...");
+        const userCategories = await getUserCategories(user);
+        setCategories(userCategories);
+        console.log(`Loaded ${userCategories.length} categories`);
+      } catch (error) {
+        console.error("Error loading user categories:", error);
+        // Fall back to default categories
+        setCategories(DEFAULT_EMAIL_CATEGORIES);
+      }
+    };
+    
+    loadUserCategories();
+  }, [user]);
   
   // Fetch threads when user authenticates
   useEffect(() => {
@@ -92,7 +113,7 @@ const EmailView = () => {
   };
   
   // Add a new custom category
-  const addNewCategory = () => {
+  const addNewCategory = async () => {
     if (newCategoryName.trim() === "" || newCategoryDesc.trim() === "") {
       toast({
         title: "Invalid category",
@@ -102,29 +123,52 @@ const EmailView = () => {
       return;
     }
     
-    // Create the new category
-    const newCategory = createCustomCategory(
-      newCategoryName,
-      newCategoryDesc
-    );
+    if (!user) {
+      toast({
+        title: "Authentication required",
+        description: "You need to be signed in to create categories.",
+        variant: "destructive"
+      });
+      return;
+    }
     
-    // Add to categories list
-    const updatedCategories = [...categories, newCategory];
-    setCategories(updatedCategories);
-    
-    // Re-categorize all threads with the new category set
-    categorizeEmails();
-    
-    // Reset and close dialog
-    setNewCategoryName("");
-    setNewCategoryDesc("");
-    setNewCategoryDialog(false);
-    
-    toast({
-      title: "Category added",
-      description: `New category "${newCategoryName}" has been created.`,
-      variant: "default"
-    });
+    try {
+      setIsCategorizing(true);
+      
+      // Create the new category in Firebase
+      const newCategory = await createCustomCategory(
+        user,
+        newCategoryName,
+        newCategoryDesc
+      );
+      
+      // Add to categories list
+      const updatedCategories = [...categories, newCategory];
+      setCategories(updatedCategories);
+      
+      // Re-categorize all threads with the new category set
+      await categorizeEmails();
+      
+      // Reset and close dialog
+      setNewCategoryName("");
+      setNewCategoryDesc("");
+      setNewCategoryDialog(false);
+      
+      toast({
+        title: "Category added",
+        description: `New category "${newCategoryName}" has been created and your emails have been reorganized.`,
+        variant: "default"
+      });
+    } catch (error) {
+      console.error("Error creating category:", error);
+      toast({
+        title: "Error creating category",
+        description: "There was a problem creating your category. Please try again.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsCategorizing(false);
+    }
   };
   
   // Render authentication prompt if not logged in

@@ -4,6 +4,7 @@ import {
   setPersistence, 
   browserLocalPersistence
 } from "firebase/auth";
+import { getFirestore } from "firebase/firestore";
 
 // Firebase configuration
 const firebaseConfig = {
@@ -14,7 +15,6 @@ const firebaseConfig = {
     import.meta.env.VITE_FIREBASE_PROJECT_ID || ""
   }.appspot.com`,
   appId: import.meta.env.VITE_FIREBASE_APP_ID || "",
-
 };
 
 // Debug Firebase configuration (without showing the entire API key)
@@ -28,6 +28,7 @@ console.log("Firebase Configuration (Debug):", {
 // Initialize Firebase
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
+const db = getFirestore(app);
 
 // Set persistence to LOCAL (browser persistence)
 // This will keep the user logged in even after page refresh
@@ -39,4 +40,4 @@ setPersistence(auth, browserLocalPersistence)
     console.error("Firebase: Error setting persistence", error);
   });
 
-export { auth, app };
+export { auth, app, db };
