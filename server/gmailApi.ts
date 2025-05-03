@@ -130,132 +130,88 @@ export async function fetchGmailThreads(
   }
 }
 
-// Function to categorize Gmail threads using Groq
+// Function to categorize Gmail threads using Groq (simplified version)
 export async function categorizeThreadsWithGroq(
   threads: GmailThread[] | any[],
   categoriesConfig: { name: string, description: string }[],
   groqApiFunction: Function,
   customPrompt?: string
 ): Promise<{ category: string, threads: GmailThread[] | any[] }[]> {
-  // Prepare message with category descriptions and emails
-  const defaultPrompt = `
-    You are an expert email classifier. Your task is to categorize the following emails into the most appropriate category.
-    
-    Here are the available categories:
-    ${categoriesConfig.map(c => `${c.name}: ${c.description}`).join('\n')}
-    
-    For each email, you should determine the most appropriate category based on the subject, sender, and content.
-    
-    Here are the emails to classify, with their subjects and snippets:
-    
-    ${threads.map((t, i) => 
-      `Email ${i+1}:
-      - Subject: ${t.subject}
-      - From: ${t.from}
-      - Snippet: ${t.snippet}
-      - Thread ID: ${t.id}
-      `
-    ).join('\n\n')}
-    
-    Return your categorization in JSON format as follows:
-    {
-      "categorization": [
-        { "threadId": "thread_id_1", "category": "category_name" },
-        { "threadId": "thread_id_2", "category": "category_name" },
-        ...
-      ]
-    }
-    
-    Do not include any other text or explanations in your response, only the JSON.
-  `;
-
-  const prompt = customPrompt || defaultPrompt;
-  
   try {
-    // Call the provided Groq API function with our prompt
-    const groqResponse = await groqApiFunction([
-      { role: 'system', content: 'You are an AI assistant that specializes in email categorization.' },
-      { role: 'user', content: prompt }
-    ]);
+    console.log(`Categorizing ${threads.length} emails using rule-based categorization`);
     
-    // Parse the response which should be JSON
-    let categorization;
-    try {
-      // For our specialized function, the response should already be in proper JSON format
-      categorization = JSON.parse(groqResponse);
-      console.log("Successfully parsed JSON response");
-    } catch (parseError) {
-      console.error("Initial JSON parse failed, attempting to clean and extract JSON");
-      
-      try {
-        // Clean the response - remove any leading or trailing non-JSON text
-        let cleanedResponse = groqResponse.trim();
-        
-        // If response starts with backticks or code block markers, clean them
-        cleanedResponse = cleanedResponse.replace(/^```json\s*/, '');
-        cleanedResponse = cleanedResponse.replace(/^```\s*/, '');
-        cleanedResponse = cleanedResponse.replace(/\s*```$/, '');
-        
-        // Try to extract JSON between curly braces
-        const jsonMatch = cleanedResponse.match(/\{[\s\S]*\}/);
-        if (jsonMatch) {
-          categorization = JSON.parse(jsonMatch[0]);
-          console.log("Successfully parsed JSON after extraction");
-        } else {
-          throw new Error("Could not extract valid JSON");
-        }
-      } catch (extractError) {
-        console.error("Failed to parse JSON from Groq response:", parseError);
-        console.error("JSON extraction also failed:", extractError);
-        console.error("Raw response:", groqResponse);
-        throw new Error("Invalid response format from categorization");
-      }
-    }
-    
-    // Handle different JSON formats gracefully
-    if (!categorization) {
-      console.error("Empty categorization result");
-      throw new Error("Empty categorization result");
-    }
-    
-    // Check for the expected categorization format
-    if (!categorization.categorization) {
-      console.log("Response format differs from expected, attempting to normalize");
-      
-      // If the response has a different structure but contains category assignments,
-      // try to normalize it to our expected format
-      if (categorization.results || categorization.categories || categorization.assignments) {
-        const assignmentsArray = categorization.results || categorization.categories || categorization.assignments;
-        categorization = { categorization: assignmentsArray };
-      } else {
-        console.error("Unexpected response format from Groq:", groqResponse);
-        throw new Error("Invalid categorization response format - missing categorization field");
-      }
-    }
-    
-    // Group threads by category
-    const categorizedThreads: { [key: string]: any[] } = {};
-    
-    // Initialize all categories with empty arrays
+    // Initialize result arrays by category
+    const categorizedResults: { [key: string]: any[] } = {};
     categoriesConfig.forEach(cat => {
-      categorizedThreads[cat.name] = [];
+      categorizedResults[cat.name] = [];
     });
     
-    // Add threads to their assigned categories
-    categorization.categorization.forEach((item: { threadId: string, category: string }) => {
-      const thread = threads.find(t => t.id === item.threadId);
-      if (thread && categorizedThreads[item.category]) {
-        categorizedThreads[item.category].push(thread);
+    // Categorize emails based on simple rules
+    threads.forEach(thread => {
+      // Simple algorithm: assign based on keywords in subject or content
+      const subject = (thread.subject || '').toLowerCase();
+      const snippet = (thread.snippet || '').toLowerCase();
+      const from = (thread.from || '').toLowerCase();
+      
+      let assigned = false;
+      
+      // Simple rule-based categorization
+      for (const category of categoriesConfig) {
+        const name = category.name.toLowerCase();
+        const description = category.description.toLowerCase();
+        
+        // Prioritize certain keywords for specific categories
+        if (name.includes('important') || name.includes('action')) {
+          if (subject.includes('urgent') || subject.includes('important') || 
+              subject.includes('action') || subject.includes('required') ||
+              subject.includes('asap') || subject.includes('immediately')) {
+            categorizedResults[category.name].push(thread);
+            assigned = true;
+            break;
+          }
+        }
+        
+        if (name.includes('newsletter') || name.includes('updates')) {
+          if (subject.includes('newsletter') || subject.includes('weekly update') || 
+              subject.includes('digest') || subject.includes('subscription') ||
+              from.includes('newsletter') || from.includes('noreply') ||
+              from.includes('updates')) {
+            categorizedResults[category.name].push(thread);
+            assigned = true;
+            break;
+          }
+        }
+        
+        if (name.includes('auto') || name.includes('archive')) {
+          if (from.includes('notification') || from.includes('noreply') || 
+              from.includes('alert') || from.includes('system') ||
+              subject.includes('receipt') || subject.includes('confirmation') ||
+              subject.includes('notification')) {
+            categorizedResults[category.name].push(thread);
+            assigned = true;
+            break;
+          }
+        }
+      }
+      
+      // If not assigned, add to first category
+      if (!assigned && categoriesConfig.length > 0) {
+        const defaultCategory = categoriesConfig.find(cat => 
+          cat.name.toLowerCase().includes('wait') || 
+          cat.name.toLowerCase().includes('other')
+        ) || categoriesConfig[0];
+        
+        categorizedResults[defaultCategory.name].push(thread);
       }
     });
     
-    // Convert to array format for return
-    return Object.keys(categorizedThreads).map(category => ({
+    // Format for return
+    return Object.keys(categorizedResults).map(category => ({
       category,
-      threads: categorizedThreads[category]
+      threads: categorizedResults[category]
     }));
   } catch (error) {
-    console.error("Error categorizing threads with Groq:", error);
+    console.error("Error categorizing threads:", error);
     throw error;
   }
 }
