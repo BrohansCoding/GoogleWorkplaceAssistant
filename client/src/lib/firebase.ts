@@ -123,11 +123,11 @@ const createGoogleDriveProvider = () => {
   return provider;
 };
 
-// Create a combined provider with ALL scopes (both Calendar and Drive)
+// Create a combined provider with ALL scopes (Calendar, Drive, and Gmail)
 const createCombinedProvider = () => {
   const provider = new GoogleAuthProvider();
   
-  console.log('Creating Google provider with FULL permissions for BOTH Calendar and Drive...');
+  console.log('Creating Google provider with FULL permissions for Calendar, Drive, and Gmail...');
   
   // Calendar scopes
   provider.addScope('https://www.googleapis.com/auth/calendar');           // Full access to Calendar
@@ -136,6 +136,9 @@ const createCombinedProvider = () => {
   // Drive scopes
   provider.addScope('https://www.googleapis.com/auth/drive');              // Full access to Drive
   provider.addScope('https://www.googleapis.com/auth/drive.file');         // Access to files created/opened by the app
+  
+  // Gmail scopes
+  provider.addScope('https://www.googleapis.com/auth/gmail.readonly');     // Read-only access to Gmail
   
   // Always include these basic scopes
   provider.addScope('profile');
@@ -360,7 +363,8 @@ export const signOut = async () => {
 
 // Get Google Calendar OAuth token (for API requests)
 // This function returns the OAuth token, refreshing if needed
-export const getGoogleCalendarToken = async (): Promise<string | null> => {
+// Generic OAuth token getter that can be used for any Google API
+export const getGoogleOAuthToken = async (): Promise<string | null> => {
   // First check if we have a valid stored token
   const storedToken = getStoredOAuthToken();
   if (!storedToken) {
@@ -441,6 +445,12 @@ export const getGoogleCalendarToken = async (): Promise<string | null> => {
   console.log("No refresh token available - user needs to re-authenticate");
   return null;
 };
+
+// Legacy function - uses the generic OAuth token getter
+export const getGoogleCalendarToken = getGoogleOAuthToken;
+
+// Get Gmail OAuth token (for API requests)
+export const getGoogleGmailToken = getGoogleOAuthToken;
 
 // Listen to auth state changes
 export const onAuthChange = (callback: (user: User | null) => void) => {
