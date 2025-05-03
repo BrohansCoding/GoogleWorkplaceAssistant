@@ -4,6 +4,11 @@ import { storage } from "./storage";
 import axios from "axios";
 import { GroqChatRequest } from "@shared/schema";
 import { getGroqCompletion } from "./groqApi";
+import {
+  getGoogleDriveFileMetadata,
+  getGoogleDriveFileContent,
+  extractFileIdFromUrl
+} from "./driveApi";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Auth routes
@@ -612,6 +617,157 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error getting AI response:", error);
       return res.status(500).json({ message: "Failed to get assistant response" });
+    }
+  });
+  
+  // Google Drive file metadata endpoint
+  app.get("/api/drive/metadata", async (req: Request, res: Response) => {
+    try {
+      const { fileId } = req.query;
+      
+      if (!fileId || typeof fileId !== 'string') {
+        return res.status(400).json({ message: "File ID is required" });
+      }
+      
+      // Get token from session
+      const token = (req.session as any)?.googleApiToken || (req.session as any)?.googleToken as string | undefined;
+      
+      if (!token) {
+        return res.status(401).json({ 
+          message: "Authentication required",
+          code: "AUTH_REQUIRED"
+        });
+      }
+      
+      // Fetch file metadata from Google Drive
+      const metadata = await getGoogleDriveFileMetadata(fileId, token);
+      
+      return res.status(200).json({ file: metadata });
+    } catch (error) {
+      console.error("Error fetching Drive file metadata:", error);
+      
+      if (axios.isAxiosError(error)) {
+        console.error("Google API error details:", {
+          status: error.response?.status,
+          data: error.response?.data
+        });
+        
+        if (error.response?.status === 401) {
+          return res.status(401).json({ 
+            message: "Token expired", 
+            code: "TOKEN_EXPIRED"
+          });
+        } else if (error.response?.status === 404) {
+          return res.status(404).json({
+            message: "File not found or access denied",
+            code: "FILE_NOT_FOUND"
+          });
+        }
+      }
+      
+      return res.status(500).json({ 
+        message: "Failed to fetch file metadata",
+        error: error instanceof Error ? error.message : String(error)
+      });
+    }
+  });
+  
+  // Google Drive chat endpoint for file Q&A
+  app.post("/api/drive/chat", async (req: Request, res: Response) => {
+    try {
+      const { messages, driveFileUrl } = req.body;
+      
+      if (!messages || !Array.isArray(messages) || !driveFileUrl) {
+        return res.status(400).json({ message: "Invalid request format" });
+      }
+      
+      // Get token from session
+      const token = (req.session as any)?.googleApiToken || (req.session as any)?.googleToken as string | undefined;
+      
+      if (!token) {
+        return res.status(401).json({ 
+          message: "Authentication required",
+          code: "AUTH_REQUIRED"
+        });
+      }
+      
+      // Extract file ID from URL
+      const fileId = extractFileIdFromUrl(driveFileUrl);
+      
+      if (!fileId) {
+        return res.status(400).json({ 
+          message: "Invalid Google Drive URL",
+          code: "INVALID_URL"
+        });
+      }
+      
+      try {
+        // Get file metadata
+        const metadata = await getGoogleDriveFileMetadata(fileId, token);
+        
+        // Get file content based on file type
+        const fileContent = await getGoogleDriveFileContent(fileId, metadata.mimeType, token);
+        
+        // Prepare document summary for the system message
+        const documentSummary = `
+Document Name: ${metadata.name}
+Document Type: ${metadata.mimeType}
+Last Modified: ${metadata.modifiedTime}
+Content Length: ${fileContent.length} characters
+
+Document Content:
+${fileContent.length > 8000 ? fileContent.substring(0, 8000) + "... [content truncated]" : fileContent}
+`;
+
+        // Create system message with document context
+        const systemMessage = `You are a helpful Document Assistant that helps users analyze and understand documents from their Google Drive.
+        
+        Current Document:
+        ${documentSummary}
+        
+        IMPORTANT RULES:
+        1. You are specifically designed to help with document questions and analysis.
+        2. Always reference the document when answering questions about it.
+        3. If the user asks something completely unrelated to the document or Drive files, respond with: "I'm a Document Assistant designed to help with your Google Drive files. Please ask me questions about the current document."
+        4. Keep your responses concise and focused on the document content.
+        5. When the user asks about specific information in the document, provide the exact section or quote if possible.
+        6. If asked about something not in the document, clearly state that the information is not present in the document.
+        7. Format your responses clearly with sections and bullet points when appropriate.
+        8. When referencing the document content, use quotes to indicate direct text from the document.
+        9. Use the formatting from the document when possible.
+        10. Never make up information that isn't in the document.
+        
+        Please provide helpful insights, information, and responses based on the document content.`;
+        
+        // Get response from Groq
+        const assistantResponse = await getGroqCompletion(systemMessage, messages);
+        
+        return res.status(200).json({ response: assistantResponse });
+      } catch (driveError) {
+        console.error("Error processing Drive file:", driveError);
+        
+        if (axios.isAxiosError(driveError)) {
+          if (driveError.response?.status === 401) {
+            return res.status(401).json({ 
+              message: "Google Drive access token expired", 
+              code: "TOKEN_EXPIRED"
+            });
+          } else if (driveError.response?.status === 404 || driveError.response?.status === 403) {
+            return res.status(403).json({
+              message: "File not found or insufficient permissions",
+              code: "ACCESS_DENIED"
+            });
+          }
+        }
+        
+        throw driveError;
+      }
+    } catch (error) {
+      console.error("Error processing Drive chat request:", error);
+      return res.status(500).json({ 
+        message: "Failed to process chat request",
+        error: error instanceof Error ? error.message : String(error)
+      });
     }
   });
 
