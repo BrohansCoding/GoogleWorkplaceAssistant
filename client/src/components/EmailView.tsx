@@ -1,5 +1,5 @@
-import { useState, useEffect } from "react";
-import { Mail, Plus, X, Inbox, Loader2, Settings, Tag, RefreshCw, ShieldCheck } from "lucide-react";
+import { useState, useEffect, useRef } from "react";
+import { Mail, Plus, X, Inbox, Loader2, Settings, Tag, RefreshCw, ShieldCheck, MoveRight, Trash2 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import EmailAuthButton from "./EmailAuthButton";
 import { Button } from "@/components/ui/button";
@@ -14,7 +14,19 @@ import { runAllFirebaseTests, createTestCategory } from "@/lib/firebase-test";
 import { testFirestoreRules } from "@/lib/test-firebase-rules";
 import { EmailThreadType, EmailCategoryType } from "@shared/schema";
 import { Input } from "@/components/ui/input";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { 
+  Dialog, 
+  DialogContent, 
+  DialogHeader, 
+  DialogTitle, 
+  DialogFooter 
+} from "@/components/ui/dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { useToast } from "@/hooks/use-toast";
 
 const EmailView = () => {
@@ -30,6 +42,9 @@ const EmailView = () => {
   const [newCategoryDialog, setNewCategoryDialog] = useState(false);
   const [newCategoryName, setNewCategoryName] = useState("");
   const [newCategoryDesc, setNewCategoryDesc] = useState("");
+  
+  // Refs for category section scrolling
+  const categoryRefs = useRef<{[key: string]: HTMLDivElement | null}>({});
   
   // Load user's categories from Firebase
   useEffect(() => {
@@ -148,6 +163,168 @@ const EmailView = () => {
   
   // Add a new custom category
   // Test Firebase security rules
+  // Function to handle scrolling to category when clicked in sidebar
+  const scrollToCategory = (categoryName: string) => {
+    if (categoryRefs.current[categoryName]) {
+      categoryRefs.current[categoryName]?.scrollIntoView({ 
+        behavior: 'smooth',
+        block: 'start'
+      });
+    }
+  };
+  
+  // Function to handle moving an email to a different category
+  const moveEmailToCategory = (thread: EmailThreadType, fromCategory: string, toCategory: string) => {
+    if (fromCategory === toCategory) return;
+    
+    // Create a copy of the current categorizedThreads
+    const updatedCategorizedThreads = [...categorizedThreads];
+    
+    // Find the source and destination categories
+    const sourceCategory = updatedCategorizedThreads.find(cat => cat.category === fromCategory);
+    const destCategory = updatedCategorizedThreads.find(cat => cat.category === toCategory);
+    
+    if (!sourceCategory || !destCategory) {
+      toast({
+        title: "Move failed",
+        description: "Could not find the source or destination category.",
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    // Remove the thread from source category
+    const updatedSourceThreads = sourceCategory.threads.filter(t => t.id !== thread.id);
+    
+    // Add the thread to destination category with updated category property
+    const updatedThread = {...thread, category: toCategory};
+    const updatedDestThreads = [...destCategory.threads, updatedThread];
+    
+    // Update the categorizedThreads state
+    const newCategorizedThreads = updatedCategorizedThreads.map(cat => {
+      if (cat.category === fromCategory) {
+        return {...cat, threads: updatedSourceThreads};
+      }
+      if (cat.category === toCategory) {
+        return {...cat, threads: updatedDestThreads};
+      }
+      return cat;
+    });
+    
+    setCategorizedThreads(newCategorizedThreads);
+    
+    toast({
+      title: "Email moved",
+      description: `Email moved from "${fromCategory}" to "${toCategory}".`,
+      variant: "default"
+    });
+  };
+  
+  // Function to delete a category and move its emails to OTHER
+  const deleteCategory = async (categoryId: string) => {
+    // Find the category to delete
+    const categoryToDelete = categories.find(cat => cat.id === categoryId);
+    
+    if (!categoryToDelete) {
+      toast({
+        title: "Delete failed",
+        description: "Could not find the category to delete.",
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    // Don't allow deleting the OTHER category
+    if (categoryToDelete.name.toUpperCase() === "OTHER") {
+      toast({
+        title: "Cannot delete",
+        description: "The OTHER category cannot be deleted as it's required for the system.",
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    // Find all emails in this category
+    const categoryThreads = categorizedThreads.find(
+      cat => cat.category === categoryToDelete.name
+    )?.threads || [];
+    
+    // First ensure we have an OTHER category
+    let otherCategory = categories.find(cat => 
+      cat.name.toUpperCase() === "OTHER" || cat.name.toLowerCase() === "other"
+    );
+    
+    if (!otherCategory) {
+      // Create an OTHER category if it doesn't exist
+      otherCategory = {
+        id: "other",
+        name: "OTHER",
+        description: "Default category for emails that don't match any other category",
+        isDefault: true,
+        color: '#94A3B8' // slate-400
+      };
+      setCategories([...categories, otherCategory]);
+    }
+    
+    // Remove the category
+    const updatedCategories = categories.filter(cat => cat.id !== categoryId);
+    setCategories(updatedCategories);
+    
+    // If there are emails in this category, reassign them to OTHER
+    if (categoryThreads.length > 0) {
+      const updatedCategorizedThreads = categorizedThreads.map(cat => {
+        if (cat.category === categoryToDelete.name) {
+          return { category: "OTHER", threads: [] }; // Remove threads from deleted category
+        }
+        if (cat.category === "OTHER" || cat.category.toUpperCase() === "OTHER") {
+          return { 
+            ...cat, 
+            threads: [...cat.threads, ...categoryThreads.map(thread => ({...thread, category: "OTHER"}))]
+          };
+        }
+        return cat;
+      });
+      
+      setCategorizedThreads(updatedCategorizedThreads);
+      
+      toast({
+        title: "Category deleted",
+        description: `Category "${categoryToDelete.name}" was deleted and ${categoryThreads.length} emails were moved to OTHER.`,
+        variant: "default"
+      });
+    } else {
+      toast({
+        title: "Category deleted",
+        description: `Category "${categoryToDelete.name}" was deleted.`,
+        variant: "default"
+      });
+    }
+    
+    // If this is a custom category stored in Firebase, send a delete request to the server
+    if (user && !categoryToDelete.isDefault) {
+      try {
+        const response = await fetch(`/api/gmail/categories/${categoryId}`, {
+          method: 'DELETE',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            threads: threads,
+            categories: categories
+          })
+        });
+        
+        if (!response.ok) {
+          console.error(`Error deleting category: ${response.status}`);
+          // Continue anyway since we've already updated the UI
+        }
+      } catch (error) {
+        console.error("Error deleting category from server:", error);
+        // Continue anyway since we've already updated the UI
+      }
+    }
+  };
+  
   const testFirebaseRules = async () => {
     if (!user) {
       toast({
@@ -485,16 +662,31 @@ const EmailView = () => {
                 key={category.id}
                 className="flex items-center justify-between p-2 rounded-md hover:bg-gray-800 cursor-pointer group"
               >
-                <div className="flex items-center">
+                <div 
+                  className="flex items-center flex-1"
+                  onClick={() => scrollToCategory(category.name)}
+                >
                   <span 
                     className="h-3 w-3 rounded-full mr-2"
                     style={{ backgroundColor: category.color }}
                   ></span>
                   <span className="text-sm text-gray-300">{category.name}</span>
                 </div>
-                <span className="text-xs text-gray-500">
-                  {categorizedThreads.find(ct => ct.category === category.name)?.threads.length || 0}
-                </span>
+                <div className="flex items-center">
+                  <span className="text-xs text-gray-500 mr-2">
+                    {categorizedThreads.find(ct => ct.category === category.name)?.threads.length || 0}
+                  </span>
+                  {category.name.toUpperCase() !== "OTHER" && (
+                    <Button 
+                      variant="ghost" 
+                      size="icon" 
+                      className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity" 
+                      onClick={() => deleteCategory(category.id)}
+                    >
+                      <Trash2 className="h-4 w-4 text-gray-400 hover:text-red-400" />
+                    </Button>
+                  )}
+                </div>
               </div>
             ))}
           </div>
@@ -536,15 +728,50 @@ const EmailView = () => {
                       category.threads.map(thread => (
                         <div 
                           key={thread.id}
-                          className="p-3 rounded-md bg-gray-800/50 hover:bg-gray-800 cursor-pointer"
+                          className="p-3 rounded-md bg-gray-800/50 hover:bg-gray-800 cursor-pointer relative group"
+                          ref={el => {
+                            // Store a reference to this category section for scrolling
+                            if (el && !categoryRefs.current[category.category]) {
+                              categoryRefs.current[category.category] = el;
+                            }
+                          }}
                         >
                           <div className="flex justify-between">
                             <span className="text-sm font-medium text-gray-200">
                               {thread.from?.replace(/<.*>/, '').trim() || 'Unknown Sender'}
                             </span>
-                            <span className="text-xs text-gray-500">
-                              {new Date(thread.date).toLocaleDateString()}
-                            </span>
+                            <div className="flex items-center">
+                              <span className="text-xs text-gray-500 mr-2">
+                                {new Date(thread.date).toLocaleDateString()}
+                              </span>
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                  <Button 
+                                    variant="ghost" 
+                                    size="icon" 
+                                    className="h-6 w-6 p-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                                  >
+                                    <MoveRight className="h-4 w-4 text-gray-400" />
+                                  </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end">
+                                  {categories
+                                    .filter(cat => cat.name !== category.category)
+                                    .map(cat => (
+                                      <DropdownMenuItem 
+                                        key={cat.id}
+                                        onClick={() => moveEmailToCategory(thread, category.category, cat.name)}
+                                      >
+                                        <span 
+                                          className="h-2 w-2 rounded-full mr-2"
+                                          style={{ backgroundColor: cat.color }}
+                                        ></span>
+                                        {cat.name}
+                                      </DropdownMenuItem>
+                                    ))}
+                                </DropdownMenuContent>
+                              </DropdownMenu>
+                            </div>
                           </div>
                           <div className="text-sm font-medium text-gray-300 mt-1">{thread.subject || 'No Subject'}</div>
                           <div className="text-xs text-gray-400 mt-1 line-clamp-1">{thread.snippet}</div>
