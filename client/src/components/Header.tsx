@@ -1,7 +1,7 @@
 import { useContext } from "react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
-import { CalendarIcon, LogOut, Folder, Mail, Home } from "lucide-react";
+import { CalendarIcon, LogOut, Folder, Mail, ArrowLeft } from "lucide-react";
 import { MobileContext } from "@/context/MobileContext";
 import { AuthContext } from "@/components/SimpleAuthProvider";
 import { signOut as firebaseSignOut } from "@/lib/firebase";
@@ -79,17 +79,15 @@ const Header = ({ activeView, setActiveView }: HeaderProps) => {
         
         {/* Navigation Tabs */}
         <div className="flex border-b border-gray-700">
+          {/* Back to Home Button */}
           <Button
             variant="ghost"
-            className={`px-4 py-2 rounded-none text-sm font-medium ${
-              activeView === "home" 
-                ? "text-blue-400 border-b-2 border-blue-500 bg-transparent" 
-                : "text-gray-400 hover:text-blue-300 hover:bg-gray-800"
-            }`}
+            size="sm"
+            className="px-2 mr-2 rounded-full flex items-center justify-center text-gray-400 hover:text-blue-300 hover:bg-gray-800"
             onClick={() => setActiveView("home")}
+            title="Back to Home"
           >
-            <Home className="mr-2 h-4 w-4" />
-            Home
+            <ArrowLeft className="h-4 w-4" />
           </Button>
         
           <Button
