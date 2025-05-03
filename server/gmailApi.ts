@@ -392,7 +392,8 @@ function categorizeEmailWithRules(
   // First pass: Score each category based on keyword matches
   for (const category of categoriesConfig) {
     categoryScores[category.name] = 0;
-    const name = category.name.toLowerCase();
+    const categoryName = category.name;
+    const name = categoryName.toLowerCase();
     const description = category.description.toLowerCase();
     
     // Extract keywords from the category description
@@ -480,7 +481,7 @@ function categorizeEmailWithRules(
   let bestCategory = categoriesConfig[0];
   let highestScore = 0;
   let highestCustomScore = 0;
-  let bestCustomCategory = null;
+  let bestCustomCategory: typeof categoriesConfig[0] | null = null;
   
   // Log all category scores for this email
   console.log(`\nRule-based scoring for email: "${subject.substring(0, 30)}..."`);
@@ -489,12 +490,35 @@ function categorizeEmailWithRules(
     const category = categoriesConfig.find(c => c.name === categoryName);
     const isCustom = category?.isDefault === false;
     
+    // Check for exact category name match in the email - this is the highest priority
+    // If the category name appears in the email text, this should be a very strong signal
+    let exactNameMatch = false;
+    
+    if (category) {
+      const catNameLower = category.name.toLowerCase();
+      const categoryNameWords = catNameLower.split(/\s+/);
+      
+      exactNameMatch = categoryNameWords.some((word: string) => {
+        if (word.length > 2) {
+          const wordRegex = new RegExp(`\\b${word}\\b`, 'i'); // Match whole word with word boundaries
+          return wordRegex.test(fullText);
+        }
+        return false;
+      });
+    }
+    
+    if (exactNameMatch) {
+      // If we have an exact match with a word from the category name, give it a massive boost
+      score += 50; // Very high score for exact matches
+      console.log(`EXACT MATCH found for category "${categoryName}" - adding 50 points`);
+    }
+    
     // Add a small boost to ALL custom categories to increase their chances
     if (isCustom) {
       score += 3; // Small boost just for being a custom category
     }
     
-    console.log(`- ${categoryName}${isCustom ? ' (custom)' : ''}: ${score} points${isCustom ? ' (includes custom boost)' : ''}`);
+    console.log(`- ${categoryName}${isCustom ? ' (custom)' : ''}: ${score} points${exactNameMatch ? ' (EXACT MATCH)' : ''}${isCustom ? ' (includes custom boost)' : ''}`);
     
     // Keep track of the best custom category separately
     if (isCustom && score > highestCustomScore) {
@@ -509,13 +533,19 @@ function categorizeEmailWithRules(
     }
   });
   
-  // If the best custom category has a reasonable score (at least 40% of highest),
+  // If we have an exact match with a score over 50, that's our category, period.
+  const hasExactMatch = highestScore >= 50;
+  
+  // If no exact match but the best custom category has a reasonable score (at least 40% of highest),
   // and there's any score at all, prioritize it even if not the absolute highest
-  if (bestCustomCategory && highestCustomScore > 0 && 
+  if (!hasExactMatch && bestCustomCategory && highestCustomScore > 0 && 
       highestCustomScore >= Math.max(5, highestScore * 0.4)) {
-    console.log(`Prioritizing custom category ${bestCustomCategory.name} (score: ${highestCustomScore}) over default category with score ${highestScore}`);
-    bestCategory = bestCustomCategory;
-    highestScore = highestCustomScore;
+    // TypeScript safety check since bestCustomCategory is possibly null
+    if (bestCustomCategory) {
+      console.log(`Prioritizing custom category ${bestCustomCategory.name} (score: ${highestCustomScore}) over default category with score ${highestScore}`);
+      bestCategory = bestCustomCategory;
+      highestScore = highestCustomScore;
+    }
   }
   
   // Log the winning category
@@ -529,13 +559,22 @@ function categorizeEmailWithRules(
     assigned = true;
   }
   
-  // If not assigned, add to default category (Can Wait or first one)
+  // If not assigned, add to the OTHER category or a default one
   if (!assigned && categoriesConfig.length > 0) {
-    const defaultCategory = categoriesConfig.find(cat => 
-      cat.name.toLowerCase().includes('wait') || 
-      cat.name.toLowerCase().includes('other')
-    ) || categoriesConfig[0];
+    // First try to find an "OTHER" category explicitly
+    let otherCategory = categoriesConfig.find(cat => 
+      cat.name.toUpperCase() === "OTHER" || cat.name.toLowerCase() === "other"
+    );
     
-    categorizedResults[defaultCategory.name].push(thread);
+    // If no OTHER category, look for something like "Can Wait" or any default
+    if (!otherCategory) {
+      otherCategory = categoriesConfig.find(cat => 
+        cat.name.toLowerCase().includes('wait') || 
+        cat.isDefault === true
+      ) || categoriesConfig[0];
+    }
+    
+    console.log(`Email not matched to any category, assigning to fallback: "${otherCategory.name}"`);
+    categorizedResults[otherCategory.name].push(thread);
   }
 }

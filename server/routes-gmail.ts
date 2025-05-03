@@ -126,11 +126,26 @@ export function registerGmailRoutes(app: Express): void {
       console.log(`Categorizing ${threadsToProcess.length} threads into ${categories.length} categories`);
       
       // Format categories for Groq API - preserve isDefault flag
-      const categoriesConfig = categories.map(cat => ({
+      // Always ensure we have an "OTHER" category as the final fallback
+      let categoriesConfig = categories.map(cat => ({
         name: cat.name,
         description: cat.description,
         isDefault: cat.isDefault === false ? false : true // Ensure custom buckets have isDefault: false
       }));
+      
+      // Check if we have an "OTHER" category, if not, add it
+      const hasOtherCategory = categoriesConfig.some(cat => 
+        cat.name.toUpperCase() === "OTHER" || cat.name.toLowerCase() === "other"
+      );
+      
+      if (!hasOtherCategory) {
+        console.log("Adding default 'OTHER' category as a fallback");
+        categoriesConfig.push({
+          name: "OTHER",
+          description: "Default category for emails that don't match any other category",
+          isDefault: true
+        });
+      }
       
       try {
         // Enhanced approach: Categorize threads using Groq with retry mechanism
@@ -230,6 +245,79 @@ export function registerGmailRoutes(app: Express): void {
       
       return res.status(500).json({ 
         message: "Failed to categorize Gmail threads",
+        error: error instanceof Error ? error.message : String(error)
+      });
+    }
+  });
+  
+  // Delete a category and reassign its emails
+  app.delete("/api/gmail/categories/:categoryId", async (req: Request, res: Response) => {
+    try {
+      const { categoryId } = req.params;
+      const { threads, categories } = req.body;
+      
+      if (!categoryId || !threads || !categories) {
+        return res.status(400).json({ 
+          message: "Category ID, threads, and categories are required",
+          code: "BAD_REQUEST" 
+        });
+      }
+      
+      // Find the category to delete
+      const categoryToDelete = categories.find((cat: any) => cat.id === categoryId);
+      
+      if (!categoryToDelete) {
+        return res.status(404).json({ 
+          message: "Category not found",
+          code: "NOT_FOUND" 
+        });
+      }
+      
+      // Get all emails that were in the category we're deleting
+      const emailsToReassign = threads.filter((thread: any) => thread.category === categoryToDelete.name);
+      
+      // Remove the category we're deleting from the categories list
+      const updatedCategories = categories.filter((cat: any) => cat.id !== categoryId);
+      
+      // Make sure we have an OTHER category
+      let otherCategory = updatedCategories.find((cat: any) => 
+        cat.name.toUpperCase() === "OTHER" || cat.name.toLowerCase() === "other"
+      );
+      
+      if (!otherCategory) {
+        // Create an OTHER category if it doesn't exist
+        otherCategory = {
+          id: "other-" + Date.now().toString(),
+          name: "OTHER",
+          description: "Default category for emails that don't match any other category",
+          isDefault: true
+        };
+        updatedCategories.push(otherCategory);
+      }
+      
+      // Reassign all emails from the deleted category to the OTHER category
+      const reassignedThreads = threads.map((thread: any) => {
+        if (thread.category === categoryToDelete.name) {
+          return {
+            ...thread,
+            category: otherCategory.name
+          };
+        }
+        return thread;
+      });
+      
+      // Return the updated data
+      return res.status(200).json({
+        success: true,
+        deletedCategory: categoryToDelete,
+        updatedCategories,
+        reassignedThreads,
+        reassignedCount: emailsToReassign.length
+      });
+    } catch (error) {
+      console.error("Error deleting category:", error);
+      return res.status(500).json({
+        message: "Failed to delete category",
         error: error instanceof Error ? error.message : String(error)
       });
     }
