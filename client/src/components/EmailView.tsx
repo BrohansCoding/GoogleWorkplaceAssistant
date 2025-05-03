@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Mail, Plus, X, Inbox, Loader2, Settings, Tag, RefreshCw } from "lucide-react";
+import { Mail, Plus, X, Inbox, Loader2, Settings, Tag, RefreshCw, ShieldCheck } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import EmailAuthButton from "./EmailAuthButton";
 import { Button } from "@/components/ui/button";
@@ -11,6 +11,7 @@ import {
   DEFAULT_EMAIL_CATEGORIES 
 } from "@/lib/emailCategories";
 import { runAllFirebaseTests, createTestCategory } from "@/lib/firebase-test";
+import { testFirestoreRules } from "@/lib/test-firebase-rules";
 import { EmailThreadType, EmailCategoryType } from "@shared/schema";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
@@ -115,6 +116,42 @@ const EmailView = () => {
   };
   
   // Add a new custom category
+  // Test Firebase security rules
+  const testFirebaseRules = async () => {
+    if (!user) {
+      toast({
+        title: "Authentication required",
+        description: "You need to be signed in to test Firebase security rules.",
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    setIsCategorizing(true);
+    
+    try {
+      const testResult = await testFirestoreRules(user);
+      
+      toast({
+        title: testResult.success ? "Firebase rules test passed!" : "Firebase rules test failed",
+        description: testResult.message,
+        variant: testResult.success ? "default" : "destructive"
+      });
+      
+      console.log("Firebase security rules test completed:", testResult);
+    } catch (error) {
+      console.error("Error testing Firebase security rules:", error);
+      
+      toast({
+        title: "Test failed",
+        description: "Could not complete Firebase security rules test. Check console for details.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsCategorizing(false);
+    }
+  };
+  
   const addNewCategory = async () => {
     if (newCategoryName.trim() === "" || newCategoryDesc.trim() === "") {
       toast({
@@ -267,6 +304,15 @@ const EmailView = () => {
           >
             <Plus className="h-4 w-4 mr-2" />
             New Category
+          </Button>
+          <Button 
+            size="sm" 
+            variant="secondary"
+            onClick={testFirebaseRules}
+            disabled={isCategorizing}
+          >
+            <ShieldCheck className="h-4 w-4 mr-2" />
+            Test Firebase Access
           </Button>
         </div>
       </div>
