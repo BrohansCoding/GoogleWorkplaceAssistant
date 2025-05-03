@@ -199,9 +199,16 @@ export async function fetchGmailThreads(
 }
 
 // Function to categorize Gmail threads using Groq (enhanced version with AI integration)
+// Define a type for categories
+export type CategoryConfig = { 
+  name: string, 
+  description: string, 
+  isDefault?: boolean 
+};
+
 export async function categorizeThreadsWithGroq(
   threads: GmailThread[] | any[],
-  categoriesConfig: { name: string, description: string, isDefault?: boolean }[],
+  categoriesConfig: CategoryConfig[],
   groqApiFunction: Function,
   customPrompt?: string
 ): Promise<{ category: string, threads: GmailThread[] | any[] }[]> {
@@ -374,7 +381,7 @@ Email 2: [Category Name]
 // Helper function for rule-based email categorization
 function categorizeEmailWithRules(
   thread: any,
-  categoriesConfig: { name: string, description: string, isDefault?: boolean }[],
+  categoriesConfig: CategoryConfig[],
   categorizedResults: { [key: string]: any[] }
 ): void {
   // Parse email content
@@ -481,7 +488,7 @@ function categorizeEmailWithRules(
   let bestCategory = categoriesConfig[0];
   let highestScore = 0;
   let highestCustomScore = 0;
-  let bestCustomCategory: typeof categoriesConfig[0] | null = null;
+  let bestCustomCategory: CategoryConfig | null = null;
   
   // Log all category scores for this email
   console.log(`\nRule-based scoring for email: "${subject.substring(0, 30)}..."`);
@@ -540,8 +547,8 @@ function categorizeEmailWithRules(
   // and there's any score at all, prioritize it even if not the absolute highest
   if (!hasExactMatch && bestCustomCategory && highestCustomScore > 0 && 
       highestCustomScore >= Math.max(5, highestScore * 0.4)) {
-    // TypeScript safety check since bestCustomCategory is possibly null
-    if (bestCustomCategory) {
+    // TypeScript safety check to ensure bestCustomCategory is not null
+    if (bestCustomCategory !== null) {
       console.log(`Prioritizing custom category ${bestCustomCategory.name} (score: ${highestCustomScore}) over default category with score ${highestScore}`);
       bestCategory = bestCustomCategory;
       highestScore = highestCustomScore;
