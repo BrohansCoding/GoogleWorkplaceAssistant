@@ -139,11 +139,26 @@ const FolderChatInterface = ({ driveItem }: FolderChatInterfaceProps) => {
       setMessages((currentMessages) => [...currentMessages, assistantMessage]);
     } catch (error) {
       console.error("Error sending message:", error);
-      toast({
-        title: "Error",
-        description: "Failed to get a response. Please try again.",
-        variant: "destructive",
-      });
+      
+      // Check for specific permission errors
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      
+      if (errorMessage.includes("403") || 
+          errorMessage.includes("401") || 
+          errorMessage.includes("permission")) {
+        
+        toast({
+          title: "Permission Error",
+          description: "You don't have sufficient access to this file. The app can only access files you explicitly shared. Try re-authenticating or using a different file.",
+          variant: "destructive",
+        });
+      } else {
+        toast({
+          title: "Error",
+          description: "Failed to get a response. Please try again.",
+          variant: "destructive",
+        });
+      }
     } finally {
       setIsLoading(false);
     }

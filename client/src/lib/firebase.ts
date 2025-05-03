@@ -89,11 +89,8 @@ const createGoogleProvider = () => {
   provider.addScope('https://www.googleapis.com/auth/calendar');           // Full access to Calendar
   provider.addScope('https://www.googleapis.com/auth/calendar.events');    // Full access to Events
   
-  // Add comprehensive Drive access scopes
-  provider.addScope('https://www.googleapis.com/auth/drive');              // Full access to all Drive files & folders
+  // Add Drive access scope - limited to files/folders created or opened by the app
   provider.addScope('https://www.googleapis.com/auth/drive.file');         // Access to files created/opened by the app
-  provider.addScope('https://www.googleapis.com/auth/drive.readonly');     // Read-only access to Drive files
-  provider.addScope('https://www.googleapis.com/auth/drive.metadata.readonly'); // Read-only access to Drive metadata
   
   // Always include these basic scopes
   provider.addScope('profile');
@@ -405,16 +402,15 @@ export const onAuthChange = (callback: (user: User | null) => void) => {
 // Force re-authentication with updated scopes to get write permission
 export const forceReauthWithUpdatedScopes = async () => {
   try {
-    console.log('Forcing re-auth with updated scopes for write permission...');
+    console.log('Forcing re-auth with updated scopes for Drive file access...');
     
     // Clear all tokens first
     clearOAuthToken();
     
     // Store a message for the user explaining why they need to sign in again
-    window.localStorage.setItem('AUTH_MESSAGE', 'You need to sign in again to grant permission to access your Google Drive and Calendar.');
+    window.localStorage.setItem('AUTH_MESSAGE', 'You need to sign in again to grant permission to access selected Google Drive files.');
     
-    // Add a flag to indicate we need calendar write permission and drive access
-    window.localStorage.setItem('NEED_CALENDAR_WRITE', 'true');
+    // Add a flag to indicate we need drive.file access
     window.localStorage.setItem('NEED_DRIVE_ACCESS', 'true');
     
     // Sign out
@@ -423,7 +419,7 @@ export const forceReauthWithUpdatedScopes = async () => {
     // Return success
     return { 
       success: true, 
-      message: 'Please sign in again to grant Google Drive and Calendar permissions. You were signed out because your current permissions are insufficient for accessing your files.'
+      message: 'Please sign in again to grant Google Drive file access permissions. You were signed out because your current permissions are insufficient for accessing your files.'
     };
   } catch (error) {
     console.error('Error during forced re-authentication:', error);

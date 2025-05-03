@@ -169,7 +169,10 @@ const FoldersView = () => {
           </div>
           <h2 className="text-2xl font-bold mb-4 text-emerald-400">Google Drive Assistant</h2>
           <p className="text-gray-300 mb-4">
-            Access your Google Drive files and folders. Simply paste a Google Drive link below and ask questions about your content.
+            Access your Google Drive files and folders. Simply paste a Google Drive link below to analyze content you've specifically shared with this app.
+          </p>
+          <p className="text-sm text-gray-400 mb-4 italic">
+            Note: Due to Google's permission model, this app can only access files and folders that you've explicitly opened with it. The app cannot see your entire Drive.
           </p>
           
           {/* Google Drive URL Form */}
