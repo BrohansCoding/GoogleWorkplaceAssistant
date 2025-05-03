@@ -130,7 +130,36 @@ const EmailView = () => {
     setIsCategorizing(true);
     
     try {
+      // First verify the ID token is valid
+      console.log("Checking Firebase auth status:", user ? "Authenticated" : "Not authenticated");
+      console.log("User ID:", user.uid);
+      console.log("User email:", user.email);
+      
+      try {
+        // Check if the user token is still valid
+        const idTokenResult = await user.getIdTokenResult(true);
+        console.log("Token is valid until:", new Date(idTokenResult.expirationTime).toLocaleString());
+        console.log("Token issued at:", new Date(idTokenResult.issuedAtTime).toLocaleString());
+      } catch (tokenError) {
+        console.error("Error refreshing token:", tokenError);
+      }
+      
+      // Now run the comprehensive test
       const testResult = await testFirestoreRules(user);
+      
+      // Display detailed info about each test
+      if (testResult.results) {
+        console.log("DETAILED TEST RESULTS:");
+        testResult.results.forEach((result, index) => {
+          console.log(`Test ${index + 1}:`, {
+            path: result.path,
+            success: result.read && result.write,
+            read: result.read ? "✓" : "✗",
+            write: result.write ? "✓" : "✗",
+            error: result.error ? result.error.toString() : "None" 
+          });
+        });
+      }
       
       toast({
         title: testResult.success ? "Firebase rules test passed!" : "Firebase rules test failed",
@@ -175,46 +204,121 @@ const EmailView = () => {
     try {
       setIsCategorizing(true);
       
-      // First run Firebase tests to see if we can write to Firestore
-      console.log("Testing Firebase functionality before creating category...");
-      const testResults = await runAllFirebaseTests(user);
+      // Generate the clean bucket ID that will be used
+      const bucketId = newCategoryName.toLowerCase().replace(/\s+/g, '-');
+      console.log(`Creating custom bucket "${newCategoryName}" (ID: ${bucketId})...`);
       
-      if (!testResults) {
-        console.log("Firebase tests failed. Using fallback approach...");
-        
-        // Try simple category creation as a fallback
-        const testCategoryCreated = await createTestCategory(user);
-        if (!testCategoryCreated) {
-          throw new Error("Unable to create category in Firebase. Please check console for details.");
-        }
+      // First check if user token is valid
+      try {
+        const idTokenResult = await user.getIdTokenResult(true);
+        console.log("Token is valid until:", new Date(idTokenResult.expirationTime).toLocaleString());
+      } catch (tokenError) {
+        console.error("Token validation error:", tokenError);
+        // Continue anyway, token might still work
       }
       
-      // After verifying Firebase works, proceed with creating the actual category
-      const newCategory = await createCustomCategory(
-        user,
-        newCategoryName,
-        newCategoryDesc
-      );
+      // Create the bucket in Firestore directly, no pre-tests 
+      console.log(`Attempting to create bucket at: users/${user.uid}/customBuckets/${bucketId}`);
       
-      // Add to categories list (whether we got it from Firebase or fallback)
-      const updatedCategories = [...categories, newCategory];
-      setCategories(updatedCategories);
+      // Try direct creation first 
+      try {
+        const newCategory = await createCustomCategory(
+          user,
+          newCategoryName,
+          newCategoryDesc
+        );
+        
+        console.log("Successfully created bucket in Firestore:", newCategory);
+        
+        // Add to categories list
+        const updatedCategories = [...categories, newCategory];
+        setCategories(updatedCategories);
+        
+        // Re-categorize all threads with the new category set
+        await categorizeEmails();
+        
+        // Reset and close dialog
+        setNewCategoryName("");
+        setNewCategoryDesc("");
+        setNewCategoryDialog(false);
+        
+        toast({
+          title: "Category added",
+          description: `New category "${newCategoryName}" has been created and your emails have been reorganized.`,
+          variant: "default"
+        });
+        
+        return; // Success path
+      } catch (directCreateError) {
+        console.error("Error creating bucket directly:", directCreateError);
+        // Continue to fallback options
+      }
       
-      // Re-categorize all threads with the new category set
-      await categorizeEmails();
+      // If direct creation failed, try creating the user document first
+      console.log("Direct bucket creation failed. Trying to create user document first...");
+      try {
+        // Import Firestore functions directly here for robustness
+        const { doc, setDoc, serverTimestamp } = await import("firebase/firestore");
+        const { db } = await import("@/lib/firebase-setup");
+        
+        // Create user document first
+        const userDocRef = doc(db, "users", user.uid);
+        await setDoc(userDocRef, {
+          email: user.email,
+          displayName: user.displayName,
+          updatedAt: serverTimestamp()
+        }, { merge: true });
+        console.log("User document created/updated successfully");
+        
+        // Now create the bucket
+        const bucketData = {
+          name: newCategoryName,
+          description: newCategoryDesc,
+          createdAt: serverTimestamp()
+        };
+        
+        const bucketRef = doc(db, "users", user.uid, "customBuckets", bucketId);
+        await setDoc(bucketRef, bucketData);
+        
+        console.log("Bucket created successfully through manual process");
+        
+        // Create a category object for the UI
+        const newCategory: EmailCategoryType = {
+          id: bucketId,
+          name: newCategoryName,
+          description: newCategoryDesc,
+          isDefault: false,
+          color: '#64748B', // default color
+          userId: user.uid
+        };
+        
+        // Add to categories list
+        const updatedCategories = [...categories, newCategory];
+        setCategories(updatedCategories);
+        
+        // Re-categorize
+        await categorizeEmails();
+        
+        // Reset and close dialog
+        setNewCategoryName("");
+        setNewCategoryDesc("");
+        setNewCategoryDialog(false);
+        
+        toast({
+          title: "Category added (fixed method)",
+          description: `New category "${newCategoryName}" has been created and your emails have been reorganized.`,
+          variant: "default"
+        });
+        
+        return; // Success through alternate method
+      } catch (alternativeError) {
+        console.error("Alternative bucket creation also failed:", alternativeError);
+        // Fall through to the local-only option
+        throw alternativeError;
+      }
       
-      // Reset and close dialog
-      setNewCategoryName("");
-      setNewCategoryDesc("");
-      setNewCategoryDialog(false);
-      
-      toast({
-        title: "Category added",
-        description: `New category "${newCategoryName}" has been created and your emails have been reorganized.`,
-        variant: "default"
-      });
     } catch (error) {
-      console.error("Error creating category:", error);
+      console.error("All bucket creation methods failed:", error);
       
       // Create a local-only category as a last resort
       const localCategory: EmailCategoryType = {
