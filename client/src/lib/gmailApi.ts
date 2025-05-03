@@ -8,29 +8,58 @@ import { getGoogleGmailToken } from './firebase';
  */
 export const fetchGmailThreads = async (maxResults: number = 100): Promise<EmailThreadType[]> => {
   try {
+    console.log("Starting Gmail threads fetch process...");
+    
     // Get the OAuth token
     const token = await getGoogleGmailToken();
+    console.log("Gmail token check:", token ? "✓ Token available" : "✗ Token not available");
+    
     if (!token) {
-      throw new Error('Not authenticated with Gmail');
+      throw new Error('Not authenticated with Gmail (missing token)');
     }
 
     // Fetch the threads from our server endpoint
     const url = `/api/gmail/threads?maxResults=${maxResults}`;
+    console.log(`Fetching Gmail threads from: ${url}`);
+    
     const response = await fetch(url, {
       method: 'GET',
-      credentials: 'include'
+      credentials: 'include',
+      headers: {
+        'Accept': 'application/json'
+      }
     });
 
+    console.log(`Gmail API response status: ${response.status} ${response.statusText}`);
+    
     if (!response.ok) {
-      throw new Error(`Failed to fetch email threads: ${response.status} ${response.statusText}`);
+      // Try to get detailed error info from response
+      let errorDetail = '';
+      try {
+        const errorData = await response.json();
+        errorDetail = `: ${errorData.message || errorData.error || JSON.stringify(errorData)}`;
+      } catch (e) {
+        // If we can't parse the error response, use the status text
+        errorDetail = `: ${response.statusText}`;
+      }
+      
+      throw new Error(`Failed to fetch email threads (${response.status})${errorDetail}`);
     }
 
+    // Parse response data
     const data = await response.json();
-    if (!data || !data.threads) {
-      console.error('Unexpected response format:', data);
+    
+    if (!data) {
+      console.error('Empty response from Gmail API');
       return [];
     }
-
+    
+    if (!data.threads) {
+      console.error('Unexpected response format (missing threads):', data);
+      return [];
+    }
+    
+    console.log(`Successfully fetched ${data.threads.length} email threads`);
     return data.threads;
   } catch (error) {
     console.error('Error fetching Gmail threads:', error);
@@ -92,36 +121,66 @@ export const categorizeGmailThreads = async (
   customPrompt?: string
 ): Promise<{ category: string, threads: EmailThreadType[] }[]> => {
   try {
+    console.log(`Starting Gmail categorization for ${threads.length} threads into ${categories.length} categories...`);
+    
     // Get the OAuth token
     const token = await getGoogleGmailToken();
+    console.log("Gmail token for categorization:", token ? "✓ Token available" : "✗ Token not available");
+    
     if (!token) {
-      throw new Error('Not authenticated with Gmail');
+      throw new Error('Not authenticated with Gmail (missing token for categorization)');
     }
 
     // Call the server endpoint for categorization
-    const response = await fetch('/api/gmail/categorize', {
+    const url = '/api/gmail/categorize';
+    console.log(`Sending categorization request to: ${url}`);
+    console.log(`Categories in request: ${categories.map(c => c.name).join(', ')}`);
+    
+    const requestBody = {
+      threads,
+      categories,
+      customPrompt
+    };
+    
+    const response = await fetch(url, {
       method: 'POST',
       headers: {
-        'Content-Type': 'application/json'
+        'Content-Type': 'application/json',
+        'Accept': 'application/json'
       },
-      body: JSON.stringify({
-        threads,
-        categories,
-        customPrompt
-      }),
+      body: JSON.stringify(requestBody),
       credentials: 'include'
     });
 
+    console.log(`Categorization API response status: ${response.status} ${response.statusText}`);
+    
     if (!response.ok) {
-      throw new Error(`Failed to categorize emails: ${response.status} ${response.statusText}`);
+      // Try to get detailed error info from response
+      let errorDetail = '';
+      try {
+        const errorData = await response.json();
+        errorDetail = `: ${errorData.message || errorData.error || JSON.stringify(errorData)}`;
+      } catch (e) {
+        // If we can't parse the error response, use the status text
+        errorDetail = `: ${response.statusText}`;
+      }
+      
+      throw new Error(`Failed to categorize emails (${response.status})${errorDetail}`);
     }
 
     const data = await response.json();
-    if (!data || !data.categorizedThreads) {
-      console.error('Unexpected categorization response format:', data);
+    
+    if (!data) {
+      console.error('Empty response from categorization API');
+      return [];
+    }
+    
+    if (!data.categorizedThreads) {
+      console.error('Unexpected categorization response format (missing categorizedThreads):', data);
       return [];
     }
 
+    console.log(`Successfully categorized threads into ${data.categorizedThreads.length} categories`);
     return data.categorizedThreads;
   } catch (error) {
     console.error('Error categorizing Gmail threads:', error);
