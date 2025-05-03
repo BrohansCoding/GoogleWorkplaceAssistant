@@ -10,6 +10,7 @@ import {
   initializeUserCategories,
   DEFAULT_EMAIL_CATEGORIES 
 } from "@/lib/emailCategories";
+import { runAllFirebaseTests, createTestCategory } from "@/lib/firebase-test";
 import { EmailThreadType, EmailCategoryType } from "@shared/schema";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
@@ -137,14 +138,28 @@ const EmailView = () => {
     try {
       setIsCategorizing(true);
       
-      // Create the new category in Firebase
+      // First run Firebase tests to see if we can write to Firestore
+      console.log("Testing Firebase functionality before creating category...");
+      const testResults = await runAllFirebaseTests(user);
+      
+      if (!testResults) {
+        console.log("Firebase tests failed. Using fallback approach...");
+        
+        // Try simple category creation as a fallback
+        const testCategoryCreated = await createTestCategory(user);
+        if (!testCategoryCreated) {
+          throw new Error("Unable to create category in Firebase. Please check console for details.");
+        }
+      }
+      
+      // After verifying Firebase works, proceed with creating the actual category
       const newCategory = await createCustomCategory(
         user,
         newCategoryName,
         newCategoryDesc
       );
       
-      // Add to categories list
+      // Add to categories list (whether we got it from Firebase or fallback)
       const updatedCategories = [...categories, newCategory];
       setCategories(updatedCategories);
       
@@ -163,11 +178,31 @@ const EmailView = () => {
       });
     } catch (error) {
       console.error("Error creating category:", error);
+      
+      // Create a local-only category as a last resort
+      const localCategory: EmailCategoryType = {
+        id: newCategoryName.toLowerCase().replace(/\s+/g, '-'),
+        name: newCategoryName,
+        description: newCategoryDesc,
+        isDefault: false,
+        color: '#64748B', // slate (default color)
+        userId: user.uid
+      };
+      
+      // Add the local category to the list
+      const updatedCategories = [...categories, localCategory];
+      setCategories(updatedCategories);
+      
       toast({
-        title: "Error creating category",
-        description: "There was a problem creating your category. Please try again.",
-        variant: "destructive"
+        title: "Category added (offline mode)",
+        description: `Created "${newCategoryName}" in offline mode. This category may not persist between sessions.`,
+        variant: "default"
       });
+      
+      // Close dialog
+      setNewCategoryName("");
+      setNewCategoryDesc("");
+      setNewCategoryDialog(false);
     } finally {
       setIsCategorizing(false);
     }

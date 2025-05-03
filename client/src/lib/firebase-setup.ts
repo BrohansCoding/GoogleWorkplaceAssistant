@@ -8,7 +8,10 @@ import {
   getFirestore, 
   collection, 
   getDocs,
-  enableIndexedDbPersistence
+  enableIndexedDbPersistence,
+  doc,
+  setDoc,
+  serverTimestamp
 } from "firebase/firestore";
 
 // Firebase configuration
@@ -81,16 +84,33 @@ if (missingConfigItems.length === 0) {
   const testFirestore = async () => {
     try {
       // Test by trying to access a test collection
-      const testCollection = collection(db, "__test_connection__");
-      console.log("Firestore: Collection reference created, attempting to query...");
+      const testCollection = collection(db, "test_connection");
+      console.log("Firestore: Collection reference created");
       
-      const testSnapshot = await getDocs(testCollection);
-      console.log("Firestore: Test query successful - collection is accessible");
-    } catch (error) {
-      console.error("Firestore connection test failed:", error);
-      if (error.code === 'permission-denied') {
-        console.error("Firestore: Permission denied. You may need to update your Firebase security rules.");
+      try {
+        // Try to query the collection - this might fail if it doesn't exist yet
+        const testSnapshot = await getDocs(testCollection);
+        console.log("Firestore: Test query successful - collection exists with", testSnapshot.size, "documents");
+      } catch (queryError: any) {
+        console.log("Firestore: Query failed, but that might be expected if collection doesn't exist yet");
+        
+        // Try to create a test document to confirm write access
+        try {
+          const testDocRef = doc(testCollection, "test_doc");
+          await setDoc(testDocRef, { 
+            timestamp: serverTimestamp(),
+            test: true 
+          });
+          console.log("Firestore: Successfully created test document - write access confirmed");
+        } catch (writeError: any) {
+          console.error("Firestore: Failed to create test document", writeError);
+          if (writeError.code === 'permission-denied') {
+            console.error("Firestore: Permission denied. Check your Firebase security rules.");
+          }
+        }
       }
+    } catch (error: any) {
+      console.error("Firestore connection test failed:", error);
     }
   };
 
