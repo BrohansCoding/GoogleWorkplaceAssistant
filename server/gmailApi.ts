@@ -259,14 +259,18 @@ export async function categorizeThreadsWithGroq(
             return `Email ${idx + 1}:\nFrom: ${from}\nSubject: ${subject}\nContent: ${snippet}`;
           }).join('\n\n');
           
-          const prompt = `You are an expert email categorization system. You have the following categories:
+          const prompt = `You are an expert email categorization system. Your primary responsibility is to categorize emails into custom user-created categories when they match, and only use default categories as a fallback.
 
+CATEGORIES (in priority order):
 ${categoryDescriptions}
 
-Please categorize each of the following emails into the most appropriate category.
-Pay special attention to custom categories (marked as IsCustom: YES) and prioritize them when there's a good match.
-For each email, respond with the email number and the category name only.
+CATEGORIZATION RULES:
+1. CUSTOM CATEGORIES (marked as IsCustom: YES) are the TOP PRIORITY - these are explicitly defined by the user and should be used whenever there's ANY reasonable match.
+2. Look for specific keywords, phrases, or themes from custom category descriptions in the email content.
+3. Only use default categories (IsCustom: no) when NO custom category is a reasonable match.
+4. Be precise and thorough in your matching - consider the full context of custom categories.
 
+EMAILS TO CATEGORIZE:
 ${emailTexts}
 
 Respond with just the categorizations in this exact format:
@@ -277,7 +281,7 @@ Email 2: [Category Name]
           try {
             // Call Groq API with our custom prompt
             const aiResponse = await groqApiFunction([
-              { role: "system", content: "You are an expert email categorization assistant that categorizes emails based on their content and the available categories." },
+              { role: "system", content: "You are an expert email categorization assistant specializing in custom category systems. Your primary job is to recognize user-defined categories first, and only use default categories as a fallback. ALWAYS prioritize custom categories (marked as IsCustom: YES) over default ones whenever there's any reasonable match." },
               { role: "user", content: prompt }
             ]);
             

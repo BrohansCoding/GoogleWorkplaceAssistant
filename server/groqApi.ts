@@ -81,7 +81,27 @@ export async function getGroqEmailCategorization(
       msg.content.includes("IsCustom:")
     );
     
+    // Determine if we're dealing with custom categories
+    const hasCustomCategories = messages.some(msg => 
+      msg.content && msg.content.includes("IsCustom: YES")
+    );
+    
     console.log(`Making email categorization request to Groq with ${isStandardFormat ? 'standard text' : 'JSON'} output format`);
+    if (hasCustomCategories) {
+      console.log("Custom categories detected, using enhanced categorization prompt");
+    }
+    
+    // Create enhanced system message that emphasizes custom categories
+    const enhancedSystemMessage = systemMessage + 
+      (hasCustomCategories ? 
+        " As an email categorization specialist, your primary task is to match emails to user-defined custom categories FIRST. " +
+        "Only use default categories when there is absolutely no possible match to any custom category. " +
+        "Be permissive with custom category matching - if there's any reasonable connection between the email and a custom category, use that category. " +
+        "Look beyond exact keyword matches to find semantic and conceptual relationships. " 
+        : "") +
+      (isStandardFormat 
+        ? "\nRespond with the email categorizations in the specified format." 
+        : "\nYou must respond with valid JSON only. No conversation or explanation, only JSON.");
     
     // Prepare the API request
     const apiRequest: any = {
@@ -91,10 +111,7 @@ export async function getGroqEmailCategorization(
       messages: [
         {
           role: "system",
-          content: systemMessage + 
-            (isStandardFormat 
-              ? "\nRespond with the email categorizations in the specified format." 
-              : "\nYou must respond with valid JSON only. No conversation or explanation, only JSON.")
+          content: enhancedSystemMessage
         },
         ...messages,
       ],
@@ -158,6 +175,13 @@ export async function getGroqCustomCategoryMatch(
     
     console.log("Making custom category matching request to Groq");
     
+    // Enhance system message to emphasize custom category importance
+    const enhancedSystemMessage = systemMessage + 
+      " You are a custom categories specialist. Your only job is to match emails to user-defined categories. " +
+      "Be permissive in your matching - if an email has ANY relevance to a custom category, match it to that category. " +
+      "Never default to general categories unless there is absolutely no match to any custom category. " +
+      "Look for implicit connections, semantic similarities, and conceptual relationships beyond exact keyword matches.";
+    
     const response = await axios.post(
       "https://api.groq.com/openai/v1/chat/completions",
       {
@@ -165,7 +189,7 @@ export async function getGroqCustomCategoryMatch(
         messages: [
           {
             role: "system",
-            content: systemMessage
+            content: enhancedSystemMessage
           },
           ...messages,
         ],
