@@ -59,7 +59,7 @@ const CalendarAuthButton = ({ onAuthSuccess }: CalendarAuthButtonProps) => {
     <Button
       onClick={handleCalendarAuth}
       disabled={isLoading}
-      className="flex items-center gap-2 bg-emerald-700 hover:bg-emerald-600 text-white"
+      className="flex items-center gap-2 bg-blue-700 hover:bg-blue-600 text-white"
     >
       {isLoading ? (
         <div className="h-4 w-4 border-2 border-current border-t-transparent rounded-full animate-spin"></div>

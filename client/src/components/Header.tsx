@@ -120,8 +120,8 @@ const Header = ({ activeView, setActiveView }: HeaderProps) => {
             variant="ghost"
             className={`px-4 py-2 rounded-none text-sm font-medium ${
               activeView === "email" 
-                ? "text-blue-400 border-b-2 border-blue-500 bg-transparent" 
-                : "text-gray-400 hover:text-blue-300 hover:bg-gray-800"
+                ? "text-purple-400 border-b-2 border-purple-500 bg-transparent" 
+                : "text-gray-400 hover:text-purple-300 hover:bg-gray-800"
             }`}
             onClick={() => setActiveView("email")}
           >

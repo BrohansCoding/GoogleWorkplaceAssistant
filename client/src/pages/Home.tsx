@@ -31,8 +31,7 @@ const Home = () => {
     <div className="flex flex-col items-center w-full h-full">
       {/* Hero section */}
       <div className="w-full bg-gradient-to-r from-blue-900/40 to-emerald-800/30 backdrop-blur p-8 md:p-16 flex flex-col items-center">
-        <BrainCircuit className="h-16 w-16 text-emerald-400 mb-4" />
-        <h1 className="text-3xl md:text-4xl font-bold text-white mb-2 text-center">Google Workspace Assistant</h1>
+        <h1 className="text-3xl md:text-4xl font-bold text-white mb-4 text-center">Google Workspace Assistant</h1>
         <p className="text-lg text-gray-300 max-w-2xl text-center">
           Connect your Google Workspace and get AI-powered assistance for your calendar, files, and email
         </p>
@@ -255,7 +254,7 @@ const Home = () => {
               variant="ghost"
               className={`flex flex-col items-center py-2 px-4 ${
                 activeView === "email" 
-                  ? "text-blue-400 border-t-2 border-blue-500 -mt-[2px]" 
+                  ? "text-purple-400 border-t-2 border-purple-500 -mt-[2px]" 
                   : "text-gray-400"
               }`}
               onClick={() => setActiveView("email")}
