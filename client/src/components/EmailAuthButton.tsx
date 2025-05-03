@@ -8,7 +8,7 @@ interface EmailAuthButtonProps {
   onAuthSuccess?: () => void;
 }
 
-const EmailAuthButton = ({ onAuthSuccess }: EmailAuthButtonProps) => {
+export const EmailAuthButton = ({ onAuthSuccess }: EmailAuthButtonProps) => {
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
 

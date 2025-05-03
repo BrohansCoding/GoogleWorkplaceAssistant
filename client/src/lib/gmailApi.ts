@@ -1,6 +1,6 @@
 import { EmailThreadType, EmailCategoryType } from '@shared/schema';
 import { getGoogleGmailToken } from './firebase';
-import { apiRequest, getQueryFn } from './queryClient';
+import { apiRequest } from './queryClient';
 
 /**
  * Fetch Gmail threads
@@ -16,12 +16,12 @@ export const fetchGmailThreads = async (maxResults: number = 100): Promise<Email
     }
 
     // Fetch the threads from our server endpoint
-    const response = await apiRequest<{ threads: EmailThreadType[], count: number }>({
+    const response = await apiRequest({
       url: `/api/gmail/threads?maxResults=${maxResults}`,
       method: 'GET',
     });
 
-    return response.threads;
+    return response.threads || [];
   } catch (error) {
     console.error('Error fetching Gmail threads:', error);
     throw error;
@@ -89,11 +89,7 @@ export const categorizeGmailThreads = async (
     }
 
     // Call the server endpoint for categorization
-    const response = await apiRequest<{ 
-      categorizedThreads: { category: string, threads: EmailThreadType[] }[],
-      totalThreads: number,
-      categories: string[]
-    }>({
+    const response = await apiRequest({
       url: '/api/gmail/categorize',
       method: 'POST',
       data: {
@@ -103,7 +99,7 @@ export const categorizeGmailThreads = async (
       }
     });
 
-    return response.categorizedThreads;
+    return response.categorizedThreads || [];
   } catch (error) {
     console.error('Error categorizing Gmail threads:', error);
     throw error;
