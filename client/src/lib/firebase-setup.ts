@@ -4,7 +4,12 @@ import {
   setPersistence, 
   browserLocalPersistence
 } from "firebase/auth";
-import { getFirestore, enableIndexedDbPersistence } from "firebase/firestore";
+import { 
+  getFirestore, 
+  collection, 
+  getDocs,
+  enableIndexedDbPersistence
+} from "firebase/firestore";
 
 // Firebase configuration
 const firebaseConfig = {
@@ -45,21 +50,6 @@ const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
 
-// Enable offline persistence for Firestore
-enableIndexedDbPersistence(db)
-  .then(() => {
-    console.log("Firestore: Offline persistence enabled");
-  })
-  .catch((err) => {
-    if (err.code === 'failed-precondition') {
-      console.warn("Firestore: Multiple tabs open, persistence can only be enabled in one tab at a time");
-    } else if (err.code === 'unimplemented') {
-      console.warn("Firestore: The current browser does not support all of the features required to enable persistence");
-    } else {
-      console.error("Firestore: Error enabling persistence:", err);
-    }
-  });
-
 // Set persistence to LOCAL (browser persistence)
 // This will keep the user logged in even after page refresh
 setPersistence(auth, browserLocalPersistence)
@@ -70,18 +60,42 @@ setPersistence(auth, browserLocalPersistence)
     console.error("Firebase: Error setting persistence", error);
   });
 
-// Test Firestore connection
-const testFirestore = async () => {
-  try {
-    console.log("Testing Firestore connection...");
-    const testCollection = db.collection("__test_connection__");
-    console.log("Firestore connection successful");
-  } catch (error) {
-    console.error("Firestore connection test failed:", error);
-  }
-};
+// Execute this only if configuration is complete
+if (missingConfigItems.length === 0) {
+  // Enable offline persistence for Firestore
+  enableIndexedDbPersistence(db)
+    .then(() => {
+      console.log("Firestore: Offline persistence enabled");
+    })
+    .catch((err) => {
+      if (err.code === 'failed-precondition') {
+        console.warn("Firestore: Multiple tabs open, persistence can only be enabled in one tab at a time");
+      } else if (err.code === 'unimplemented') {
+        console.warn("Firestore: The current browser does not support all of the features required to enable persistence");
+      } else {
+        console.error("Firestore: Error enabling persistence:", err);
+      }
+    });
 
-// Run test
-testFirestore();
+  // Test Firestore connection
+  const testFirestore = async () => {
+    try {
+      // Test by trying to access a test collection
+      const testCollection = collection(db, "__test_connection__");
+      console.log("Firestore: Collection reference created, attempting to query...");
+      
+      const testSnapshot = await getDocs(testCollection);
+      console.log("Firestore: Test query successful - collection is accessible");
+    } catch (error) {
+      console.error("Firestore connection test failed:", error);
+      if (error.code === 'permission-denied') {
+        console.error("Firestore: Permission denied. You may need to update your Firebase security rules.");
+      }
+    }
+  };
+
+  // Run the test
+  testFirestore();
+}
 
 export { auth, app, db };
