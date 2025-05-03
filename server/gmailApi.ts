@@ -564,22 +564,16 @@ function categorizeEmailWithRules(
     assigned = true;
   }
   
-  // If not assigned, add to the OTHER category or a default one
+  // If not assigned, find the best fallback category
   if (!assigned && categoriesConfig.length > 0) {
-    // First try to find an "OTHER" category explicitly
-    let otherCategory = categoriesConfig.find(cat => 
-      cat.name.toUpperCase() === "OTHER" || cat.name.toLowerCase() === "other"
-    );
+    // Look for a default category that seems appropriate for low-priority items
+    let fallbackCategory = categoriesConfig.find(cat => 
+      cat.name.toLowerCase().includes('wait') || 
+      cat.description.toLowerCase().includes('low priority') ||
+      cat.isDefault === true
+    ) || categoriesConfig[0];
     
-    // If no OTHER category, look for something like "Can Wait" or any default
-    if (!otherCategory) {
-      otherCategory = categoriesConfig.find(cat => 
-        cat.name.toLowerCase().includes('wait') || 
-        cat.isDefault === true
-      ) || categoriesConfig[0];
-    }
-    
-    console.log(`Email not matched to any category, assigning to fallback: "${otherCategory.name}"`);
-    categorizedResults[otherCategory.name].push(thread);
+    console.log(`Email not matched to any category, assigning to fallback: "${fallbackCategory.name}"`);
+    categorizedResults[fallbackCategory.name].push(thread);
   }
 }

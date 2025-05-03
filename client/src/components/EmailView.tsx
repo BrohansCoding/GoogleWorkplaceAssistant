@@ -166,9 +166,15 @@ const EmailView = () => {
   // Function to handle scrolling to category when clicked in sidebar
   const scrollToCategory = (categoryName: string) => {
     if (categoryRefs.current[categoryName]) {
-      categoryRefs.current[categoryName]?.scrollIntoView({ 
-        behavior: 'smooth',
-        block: 'start'
+      // Scroll to the element with offset to account for header
+      const element = categoryRefs.current[categoryName];
+      const headerOffset = 20; // Adjust this offset as needed
+      const elementPosition = element.getBoundingClientRect().top;
+      const offsetPosition = elementPosition + window.pageYOffset - headerOffset;
+      
+      window.scrollTo({
+        top: offsetPosition,
+        behavior: 'smooth'
       });
     }
   };
@@ -220,7 +226,7 @@ const EmailView = () => {
     });
   };
   
-  // Function to delete a category and move its emails to OTHER
+  // Function to delete a category and redistribute emails with AI
   const deleteCategory = async (categoryId: string) => {
     // Find the category to delete
     const categoryToDelete = categories.find(cat => cat.id === categoryId);
@@ -234,65 +240,51 @@ const EmailView = () => {
       return;
     }
     
-    // Don't allow deleting the OTHER category
-    if (categoryToDelete.name.toUpperCase() === "OTHER") {
-      toast({
-        title: "Cannot delete",
-        description: "The OTHER category cannot be deleted as it's required for the system.",
-        variant: "destructive"
-      });
-      return;
-    }
-    
     // Find all emails in this category
     const categoryThreads = categorizedThreads.find(
       cat => cat.category === categoryToDelete.name
     )?.threads || [];
     
-    // First ensure we have an OTHER category
-    let otherCategory = categories.find(cat => 
-      cat.name.toUpperCase() === "OTHER" || cat.name.toLowerCase() === "other"
-    );
-    
-    if (!otherCategory) {
-      // Create an OTHER category if it doesn't exist
-      otherCategory = {
-        id: "other",
-        name: "OTHER",
-        description: "Default category for emails that don't match any other category",
-        isDefault: true,
-        color: '#94A3B8' // slate-400
-      };
-      setCategories([...categories, otherCategory]);
-    }
-    
-    // Remove the category
+    // Remove the category first
     const updatedCategories = categories.filter(cat => cat.id !== categoryId);
     setCategories(updatedCategories);
     
-    // If there are emails in this category, reassign them to OTHER
+    // First show a toast to let the user know what's happening
+    setIsCategorizing(true);
+    toast({
+      title: "Category deleted",
+      description: `Deleted "${categoryToDelete.name}" and redistributing emails using AI...`,
+      variant: "default"
+    });
+    
+    // If there are emails in this category, we need to re-categorize them
     if (categoryThreads.length > 0) {
-      const updatedCategorizedThreads = categorizedThreads.map(cat => {
-        if (cat.category === categoryToDelete.name) {
-          return { category: "OTHER", threads: [] }; // Remove threads from deleted category
-        }
-        if (cat.category === "OTHER" || cat.category.toUpperCase() === "OTHER") {
-          return { 
-            ...cat, 
-            threads: [...cat.threads, ...categoryThreads.map(thread => ({...thread, category: "OTHER"}))]
-          };
-        }
-        return cat;
-      });
-      
-      setCategorizedThreads(updatedCategorizedThreads);
-      
-      toast({
-        title: "Category deleted",
-        description: `Category "${categoryToDelete.name}" was deleted and ${categoryThreads.length} emails were moved to OTHER.`,
-        variant: "default"
-      });
+      try {
+        // Get the updated category list without the deleted category
+        const remainingCategories = categories.filter(cat => cat.id !== categoryId);
+        
+        // Re-categorize all threads with the new category list
+        // We recategorize ALL threads to ensure consistency
+        const recategorized = await categorizeGmailThreads(threads, remainingCategories);
+        setCategorizedThreads(recategorized);
+        
+        toast({
+          title: "Emails redistributed",
+          description: `${categoryThreads.length} emails from "${categoryToDelete.name}" have been reassigned to other categories.`,
+          variant: "default"
+        });
+      } catch (error) {
+        console.error("Error redistributing emails:", error);
+        toast({
+          title: "Redistribution failed",
+          description: "Failed to reassign emails to new categories. Please try again.",
+          variant: "destructive"
+        });
+      } finally {
+        setIsCategorizing(false);
+      }
     } else {
+      setIsCategorizing(false);
       toast({
         title: "Category deleted",
         description: `Category "${categoryToDelete.name}" was deleted.`,
@@ -310,12 +302,12 @@ const EmailView = () => {
           },
           body: JSON.stringify({
             threads: threads,
-            categories: categories
+            categories: updatedCategories
           })
         });
         
         if (!response.ok) {
-          console.error(`Error deleting category: ${response.status}`);
+          console.error(`Error deleting category from server: ${response.status}`);
           // Continue anyway since we've already updated the UI
         }
       } catch (error) {
@@ -676,16 +668,14 @@ const EmailView = () => {
                   <span className="text-xs text-gray-500 mr-2">
                     {categorizedThreads.find(ct => ct.category === category.name)?.threads.length || 0}
                   </span>
-                  {category.name.toUpperCase() !== "OTHER" && (
-                    <Button 
-                      variant="ghost" 
-                      size="icon" 
-                      className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity" 
-                      onClick={() => deleteCategory(category.id)}
-                    >
-                      <Trash2 className="h-4 w-4 text-gray-400 hover:text-red-400" />
-                    </Button>
-                  )}
+                  <Button 
+                    variant="ghost" 
+                    size="icon" 
+                    className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity" 
+                    onClick={() => deleteCategory(category.id)}
+                  >
+                    <Trash2 className="h-4 w-4 text-gray-400 hover:text-red-400" />
+                  </Button>
                 </div>
               </div>
             ))}
