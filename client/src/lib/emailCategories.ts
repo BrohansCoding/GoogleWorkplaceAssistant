@@ -52,17 +52,25 @@ export const initializeUserCategories = async (user: User): Promise<EmailCategor
     return DEFAULT_EMAIL_CATEGORIES;
   }
 
+  console.log("Initializing categories for user:", user);
+  console.log("User UID:", user.uid);
+
   try {
     // Reference to user's categories collection
+    console.log("Creating collection reference at:", `users/${user.uid}/emailCategories`);
     const categoriesRef = collection(db, "users", user.uid, "emailCategories");
+    console.log("Collection reference created");
     
     // Check if user already has categories
+    console.log("Checking for existing categories");
     const categoriesSnapshot = await getDocs(categoriesRef);
+    console.log("Got collection snapshot, empty?", categoriesSnapshot.empty);
     
     // If categories already exist, return them
     if (!categoriesSnapshot.empty) {
       const categories: EmailCategoryType[] = [];
       categoriesSnapshot.forEach(doc => {
+        console.log("Existing category:", doc.id, doc.data());
         categories.push(doc.data() as EmailCategoryType);
       });
       console.log(`Loaded ${categories.length} existing categories for user ${user.uid}`);
@@ -71,13 +79,15 @@ export const initializeUserCategories = async (user: User): Promise<EmailCategor
     
     // If no categories exist, create default ones
     console.log(`Creating default categories for new user ${user.uid}`);
-    const creationPromises = DEFAULT_EMAIL_CATEGORIES.map(category => 
-      setDoc(doc(categoriesRef, category.id), {
+    const creationPromises = DEFAULT_EMAIL_CATEGORIES.map(category => {
+      console.log(`Creating default category: ${category.name} at path: users/${user.uid}/emailCategories/${category.id}`);
+      return setDoc(doc(categoriesRef, category.id), {
         ...category,
         userId: user.uid
-      })
-    );
+      });
+    });
     
+    console.log("Starting Promise.all for category creation");
     await Promise.all(creationPromises);
     console.log(`Created ${DEFAULT_EMAIL_CATEGORIES.length} default categories`);
     
@@ -88,6 +98,7 @@ export const initializeUserCategories = async (user: User): Promise<EmailCategor
     }));
   } catch (error) {
     console.error("Error initializing user categories:", error);
+    console.error("Error details:", JSON.stringify(error));
     // Fall back to default categories if Firestore fails
     return DEFAULT_EMAIL_CATEGORIES;
   }
@@ -111,9 +122,14 @@ export const createCustomCategory = async (
     throw new Error("Cannot create category: No authenticated user");
   }
   
+  console.log("Creating custom category with user:", user);
+  console.log("User UID:", user.uid);
+  console.log("Category details:", { name, description, color });
+  
   try {
     // Generate a clean ID from the name
     const id = name.toLowerCase().replace(/\s+/g, '-');
+    console.log("Generated ID:", id);
     
     // Create the category object
     const newCategory: EmailCategoryType = {
@@ -125,6 +141,9 @@ export const createCustomCategory = async (
       userId: user.uid
     };
     
+    console.log("New category object:", newCategory);
+    console.log("Firestore path:", `users/${user.uid}/emailCategories/${id}`);
+    
     // Add to Firestore
     await setDoc(
       doc(db, "users", user.uid, "emailCategories", id), 
@@ -135,6 +154,7 @@ export const createCustomCategory = async (
     return newCategory;
   } catch (error) {
     console.error("Error creating custom category:", error);
+    console.error("Error details:", JSON.stringify(error));
     throw error;
   }
 };
@@ -148,25 +168,35 @@ export const getUserCategories = async (user: User): Promise<EmailCategoryType[]
     return DEFAULT_EMAIL_CATEGORIES;
   }
   
+  console.log("Getting categories for user:", user);
+  console.log("User UID:", user.uid);
+  
   try {
     // First, try to get from Firestore
+    console.log("Attempting to access Firestore path:", `users/${user.uid}/emailCategories`);
     const categoriesRef = collection(db, "users", user.uid, "emailCategories");
+    console.log("Collection reference created");
+    
     const categoriesSnapshot = await getDocs(categoriesRef);
+    console.log("Got collection snapshot, empty?", categoriesSnapshot.empty);
     
     // If categories exist, return them
     if (!categoriesSnapshot.empty) {
       const categories: EmailCategoryType[] = [];
       categoriesSnapshot.forEach(doc => {
+        console.log("Document data:", doc.id, doc.data());
         categories.push(doc.data() as EmailCategoryType);
       });
       console.log(`Loaded ${categories.length} categories for user ${user.uid}`);
       return categories;
     }
     
+    console.log("No categories found, initializing defaults");
     // If no categories found, initialize with defaults
     return initializeUserCategories(user);
   } catch (error) {
     console.error("Error getting user categories:", error);
+    console.error("Error details:", JSON.stringify(error));
     // Fall back to default categories if Firestore fails
     return DEFAULT_EMAIL_CATEGORIES;
   }
