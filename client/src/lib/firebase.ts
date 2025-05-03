@@ -123,8 +123,35 @@ const createGoogleDriveProvider = () => {
   return provider;
 };
 
-// Default provider for backward compatibility
-const createGoogleProvider = createGoogleCalendarProvider;
+// Create a combined provider with ALL scopes (both Calendar and Drive)
+const createCombinedProvider = () => {
+  const provider = new GoogleAuthProvider();
+  
+  console.log('Creating Google provider with FULL permissions for BOTH Calendar and Drive...');
+  
+  // Calendar scopes
+  provider.addScope('https://www.googleapis.com/auth/calendar');           // Full access to Calendar
+  provider.addScope('https://www.googleapis.com/auth/calendar.events');    // Full access to Events
+  
+  // Drive scopes
+  provider.addScope('https://www.googleapis.com/auth/drive');              // Full access to Drive
+  provider.addScope('https://www.googleapis.com/auth/drive.file');         // Access to files created/opened by the app
+  
+  // Always include these basic scopes
+  provider.addScope('profile');
+  provider.addScope('email');
+  
+  // Force consent screen to ensure we get all permissions and refresh token
+  provider.setCustomParameters({
+    prompt: 'consent',
+    access_type: 'offline'
+  });
+  
+  return provider;
+};
+
+// Default provider now uses the combined provider that requests all scopes
+const createGoogleProvider = createCombinedProvider;
 
 // Check for redirect result on page load
 export const checkRedirectResult = async () => {
