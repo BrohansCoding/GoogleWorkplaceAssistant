@@ -1,7 +1,7 @@
 import type { Express, Request, Response } from "express";
 import { GmailCategorizeRequest } from "@shared/schema";
 import { fetchGmailThreads, categorizeThreadsWithGroq, GmailThread } from "./gmailApi";
-import { getGroqCompletion } from "./groqApi";
+import { getGroqCompletion, getGroqEmailCategorization } from "./groqApi";
 
 /**
  * Register Gmail-related routes
@@ -101,8 +101,9 @@ export function registerGmailRoutes(app: Express): void {
           // Pass the Groq completion function
           async (messages: any[]) => {
             try {
-              return await getGroqCompletion(
-                "You are an AI assistant that specializes in email categorization.",
+              // Use the specialized email categorization function
+              return await getGroqEmailCategorization(
+                "You are an AI assistant that specializes in email categorization. Your task is to categorize emails into the provided categories.",
                 messages
               );
             } catch (groqError: any) {
@@ -111,8 +112,9 @@ export function registerGmailRoutes(app: Express): void {
                 console.log("Rate limit hit, waiting before retry...");
                 // Wait 2 seconds and try again
                 await new Promise(resolve => setTimeout(resolve, 2000));
-                return await getGroqCompletion(
-                  "You are an AI assistant that specializes in email categorization.",
+                // Use specialized function for the retry as well
+                return await getGroqEmailCategorization(
+                  "You are an AI assistant that specializes in email categorization. Your task is to categorize emails into the provided categories.",
                   messages
                 );
               }

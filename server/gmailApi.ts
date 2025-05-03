@@ -181,24 +181,56 @@ export async function categorizeThreadsWithGroq(
     // Parse the response which should be JSON
     let categorization;
     try {
-      // First try to see if the entire response is valid JSON
+      // For our specialized function, the response should already be in proper JSON format
       categorization = JSON.parse(groqResponse);
-    } catch (e) {
-      // If that fails, try to extract JSON from the string
-      const jsonMatch = groqResponse.match(/\{[\s\S]*\}/);
-      if (jsonMatch) {
-        try {
+      console.log("Successfully parsed JSON response");
+    } catch (parseError) {
+      console.error("Initial JSON parse failed, attempting to clean and extract JSON");
+      
+      try {
+        // Clean the response - remove any leading or trailing non-JSON text
+        let cleanedResponse = groqResponse.trim();
+        
+        // If response starts with backticks or code block markers, clean them
+        cleanedResponse = cleanedResponse.replace(/^```json\s*/, '');
+        cleanedResponse = cleanedResponse.replace(/^```\s*/, '');
+        cleanedResponse = cleanedResponse.replace(/\s*```$/, '');
+        
+        // Try to extract JSON between curly braces
+        const jsonMatch = cleanedResponse.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
           categorization = JSON.parse(jsonMatch[0]);
-        } catch (e2) {
-          console.error("Failed to parse JSON from Groq response:", e2);
-          throw new Error("Invalid response format from categorization");
+          console.log("Successfully parsed JSON after extraction");
+        } else {
+          throw new Error("Could not extract valid JSON");
         }
+      } catch (extractError) {
+        console.error("Failed to parse JSON from Groq response:", parseError);
+        console.error("JSON extraction also failed:", extractError);
+        console.error("Raw response:", groqResponse);
+        throw new Error("Invalid response format from categorization");
       }
     }
     
-    if (!categorization || !categorization.categorization) {
-      console.error("Unexpected response format from Groq:", groqResponse);
-      throw new Error("Invalid categorization response format");
+    // Handle different JSON formats gracefully
+    if (!categorization) {
+      console.error("Empty categorization result");
+      throw new Error("Empty categorization result");
+    }
+    
+    // Check for the expected categorization format
+    if (!categorization.categorization) {
+      console.log("Response format differs from expected, attempting to normalize");
+      
+      // If the response has a different structure but contains category assignments,
+      // try to normalize it to our expected format
+      if (categorization.results || categorization.categories || categorization.assignments) {
+        const assignmentsArray = categorization.results || categorization.categories || categorization.assignments;
+        categorization = { categorization: assignmentsArray };
+      } else {
+        console.error("Unexpected response format from Groq:", groqResponse);
+        throw new Error("Invalid categorization response format - missing categorization field");
+      }
     }
     
     // Group threads by category
