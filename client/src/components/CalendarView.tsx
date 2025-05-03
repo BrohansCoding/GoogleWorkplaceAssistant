@@ -147,15 +147,19 @@ const CalendarView = () => {
     <section className="w-full h-full bg-gray-900">
       <div className="p-4">
         {!user ? (
-          <div className="flex flex-col items-center justify-center p-8 h-[80vh]">
-            <div className="text-center mb-8">
-              <CalendarDayIcon className="h-16 w-16 text-emerald-500 mx-auto mb-4" />
-              <h2 className="text-2xl font-bold text-gray-100 mb-2">Calendar Assistant</h2>
-              <p className="text-gray-400 max-w-md">
+          <div className="flex flex-col items-center justify-center h-full p-8 bg-gray-800/60 backdrop-blur-sm">
+            <div className="text-center max-w-md p-8 rounded-xl bg-gray-800/80 shadow-lg border border-gray-700">
+              <div className="w-20 h-20 mx-auto mb-6 rounded-full bg-blue-900 flex items-center justify-center">
+                <CalendarDayIcon className="h-10 w-10 text-blue-400" />
+              </div>
+              <h2 className="text-2xl font-bold mb-4 text-blue-400">Calendar Assistant</h2>
+              <p className="text-gray-300 mb-6">
                 Connect your Google Calendar to view and manage your schedule, analyze your time usage, and get AI-powered insights about your calendar.
               </p>
+              <div className="mt-2">
+                <CalendarAuthButton onAuthSuccess={handleCalendarAuthSuccess} />
+              </div>
             </div>
-            <CalendarAuthButton onAuthSuccess={handleCalendarAuthSuccess} />
           </div>
         ) : (
           <>
