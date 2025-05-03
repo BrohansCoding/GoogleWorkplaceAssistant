@@ -79,15 +79,19 @@ export const clearOAuthToken = () => {
   console.log('OAuth token cleared from storage');
 };
 
-// Create Google Auth Provider with proper Calendar scopes
+// Create Google Auth Provider with proper Calendar and Drive scopes
 const createGoogleProvider = () => {
   const provider = new GoogleAuthProvider();
   
-  // ALWAYS request full access to calendars to avoid re-authentication later
+  // ALWAYS request full access to calendars and drive to avoid re-authentication later
   // These are the EXACT scopes needed for Google Calendar API with write access
-  console.log('Creating Google provider with FULL permissions for calendar...');
+  console.log('Creating Google provider with FULL permissions for calendar and drive...');
   provider.addScope('https://www.googleapis.com/auth/calendar');           // Full access to Calendar
   provider.addScope('https://www.googleapis.com/auth/calendar.events');    // Full access to Events
+  
+  // Adding Google Drive scopes for file access
+  provider.addScope('https://www.googleapis.com/auth/drive.readonly');     // Read-only access to Drive files
+  provider.addScope('https://www.googleapis.com/auth/drive.metadata.readonly'); // Read-only access to Drive metadata
   
   // Always include these basic scopes
   provider.addScope('profile');
