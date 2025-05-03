@@ -130,15 +130,16 @@ export async function fetchGmailThreads(
   }
 }
 
-// Function to categorize Gmail threads using Groq (simplified version)
+// Function to categorize Gmail threads using Groq (enhanced version)
 export async function categorizeThreadsWithGroq(
   threads: GmailThread[] | any[],
-  categoriesConfig: { name: string, description: string }[],
+  categoriesConfig: { name: string, description: string, isDefault?: boolean }[],
   groqApiFunction: Function,
   customPrompt?: string
 ): Promise<{ category: string, threads: GmailThread[] | any[] }[]> {
   try {
-    console.log(`Categorizing ${threads.length} emails using rule-based categorization`);
+    console.log(`Categorizing ${threads.length} emails using enhanced rule-based categorization`);
+    console.log(`Categories available: ${categoriesConfig.map(c => c.name).join(', ')}`);
     
     // Initialize result arrays by category
     const categorizedResults: { [key: string]: any[] } = {};
@@ -146,55 +147,103 @@ export async function categorizeThreadsWithGroq(
       categorizedResults[cat.name] = [];
     });
     
-    // Categorize emails based on simple rules
+    // Categorize emails based on advanced rules with scoring
     threads.forEach(thread => {
-      // Simple algorithm: assign based on keywords in subject or content
+      // Parse email content
       const subject = (thread.subject || '').toLowerCase();
       const snippet = (thread.snippet || '').toLowerCase();
       const from = (thread.from || '').toLowerCase();
+      const fullText = `${subject} ${snippet} ${from}`;
       
+      // Track if email has been assigned to a category
       let assigned = false;
       
-      // Simple rule-based categorization
+      // Score each category based on relevance
+      let categoryScores: {[key: string]: number} = {};
+      
+      // First pass: Score each category based on keyword matches
       for (const category of categoriesConfig) {
+        categoryScores[category.name] = 0;
         const name = category.name.toLowerCase();
         const description = category.description.toLowerCase();
         
-        // Prioritize certain keywords for specific categories
-        if (name.includes('important') || name.includes('action')) {
+        // Extract keywords from the category description
+        const descKeywords = description
+          .replace(/[.,\/#!$%\^&\*;:{}=\-_`~()]/g, "")
+          .split(/\s+/)
+          .filter(word => word.length > 3); // Only use meaningful words
+        
+        // Check for category name match (highest priority)
+        if (fullText.includes(name)) {
+          categoryScores[category.name] += 10;
+        }
+        
+        // Check for keywords from description
+        descKeywords.forEach(keyword => {
+          if (fullText.includes(keyword)) {
+            categoryScores[category.name] += 2;
+          }
+        });
+        
+        // Add standard rules for known categories
+        if (name.includes('important') || name.includes('action') || name.includes('urgent')) {
           if (subject.includes('urgent') || subject.includes('important') || 
               subject.includes('action') || subject.includes('required') ||
-              subject.includes('asap') || subject.includes('immediately')) {
-            categorizedResults[category.name].push(thread);
-            assigned = true;
-            break;
+              subject.includes('asap') || subject.includes('immediately') ||
+              subject.includes('deadline')) {
+            categoryScores[category.name] += 8;
           }
         }
         
-        if (name.includes('newsletter') || name.includes('updates')) {
+        if (name.includes('newsletter') || name.includes('updates') || name.includes('subscription')) {
           if (subject.includes('newsletter') || subject.includes('weekly update') || 
               subject.includes('digest') || subject.includes('subscription') ||
               from.includes('newsletter') || from.includes('noreply') ||
-              from.includes('updates')) {
-            categorizedResults[category.name].push(thread);
-            assigned = true;
-            break;
+              from.includes('updates') || subject.includes('latest news')) {
+            categoryScores[category.name] += 8;
           }
         }
         
-        if (name.includes('auto') || name.includes('archive')) {
+        if (name.includes('auto') || name.includes('archive') || name.includes('notification')) {
           if (from.includes('notification') || from.includes('noreply') || 
               from.includes('alert') || from.includes('system') ||
+              from.includes('no-reply') || from.includes('donotreply') ||
               subject.includes('receipt') || subject.includes('confirmation') ||
-              subject.includes('notification')) {
-            categorizedResults[category.name].push(thread);
-            assigned = true;
-            break;
+              subject.includes('notification') || subject.includes('automated')) {
+            categoryScores[category.name] += 8;
           }
+        }
+        
+        // Special handling for custom categories (examine subject and content for relevance)
+        if (category.isDefault === false) {
+          // Check for any word from the name in the email
+          const nameWords = name.split(/\s+/);
+          nameWords.forEach(word => {
+            if (word.length > 2 && fullText.includes(word)) {
+              categoryScores[category.name] += 5;
+            }
+          });
         }
       }
       
-      // If not assigned, add to first category
+      // Find the category with the highest score
+      let bestCategory = categoriesConfig[0];
+      let highestScore = 0;
+      
+      Object.entries(categoryScores).forEach(([categoryName, score]) => {
+        if (score > highestScore) {
+          highestScore = score;
+          bestCategory = categoriesConfig.find(c => c.name === categoryName) || categoriesConfig[0];
+        }
+      });
+      
+      // If we have a score, assign to the best category
+      if (highestScore > 0) {
+        categorizedResults[bestCategory.name].push(thread);
+        assigned = true;
+      }
+      
+      // If not assigned, add to default category (Can Wait or first one)
       if (!assigned && categoriesConfig.length > 0) {
         const defaultCategory = categoriesConfig.find(cat => 
           cat.name.toLowerCase().includes('wait') || 

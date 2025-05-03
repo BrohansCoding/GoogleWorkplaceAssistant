@@ -123,6 +123,7 @@ const EmailView = () => {
       return;
     }
     
+    // User auth check (Firebase User object required)
     if (!user) {
       toast({
         title: "Authentication required",
