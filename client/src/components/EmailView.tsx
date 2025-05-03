@@ -56,19 +56,34 @@ const EmailView = () => {
     }
   };
   
-  // Categorize email threads using LLM
+  // Categorize email threads using LLM - with batch processing
   const categorizeEmails = async (emailThreads: EmailThreadType[] = threads) => {
     if (!emailThreads.length) return;
     
     setIsCategorizing(true);
     try {
-      const categorized = await categorizeGmailThreads(emailThreads, categories);
+      // Process only 50 emails at a time to avoid payload size limits
+      const batchSize = 50;
+      const emailsToProcess = emailThreads.slice(0, batchSize);
+      
+      console.log(`Categorizing ${emailsToProcess.length} emails (out of ${emailThreads.length} total)`);
+      
+      const categorized = await categorizeGmailThreads(emailsToProcess, categories);
       setCategorizedThreads(categorized);
+      
+      // Let the user know we're only processing a subset
+      if (emailThreads.length > batchSize) {
+        toast({
+          title: "Email categorization limited",
+          description: `Showing categories for the ${batchSize} most recent emails (out of ${emailThreads.length} total)`,
+          variant: "default"
+        });
+      }
     } catch (error) {
       console.error("Error categorizing emails:", error);
       toast({
         title: "Categorization failed",
-        description: "We couldn't automatically categorize your emails.",
+        description: "We couldn't automatically categorize your emails. Please try again.",
         variant: "destructive"
       });
     } finally {
