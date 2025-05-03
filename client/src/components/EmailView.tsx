@@ -17,6 +17,7 @@ import { useToast } from "@/hooks/use-toast";
 
 const EmailView = () => {
   const { user } = useAuth();
+  // Ensure user is treated as a Firebase User type
   const { toast } = useToast();
   const [threads, setThreads] = useState<EmailThreadType[]>([]);
   const [categorizedThreads, setCategorizedThreads] = useState<{ category: string, threads: EmailThreadType[] }[]>([]);

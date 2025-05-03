@@ -188,23 +188,4 @@ export const categorizeGmailThreads = async (
   }
 };
 
-/**
- * Create a new custom email category
- * @param name Category name
- * @param description Category description
- * @param color Optional color for the category
- * @returns The newly created category
- */
-export const createCustomCategory = (
-  name: string,
-  description: string,
-  color?: string
-): EmailCategoryType => {
-  return {
-    id: name.toLowerCase().replace(/\s+/g, '-'),
-    name,
-    description,
-    isDefault: false,
-    color: color || '#64748B' // slate (default color)
-  };
-};
+// Moved to emailCategories.ts
