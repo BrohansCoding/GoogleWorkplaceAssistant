@@ -282,13 +282,39 @@ export async function categorizeThreadsWithGroq(
           }
         }
         
-        // Special handling for custom categories (examine subject and content for relevance)
+        // Enhanced special handling for custom categories 
+        // Give higher priority to custom user-created categories
         if (category.isDefault === false) {
-          // Check for any word from the name in the email
+          console.log(`Scoring custom category "${category.name}" (${description})`);
+          
+          // Check for any word from the name in the email (higher weight)
           const nameWords = name.split(/\s+/);
           nameWords.forEach(word => {
             if (word.length > 2 && fullText.includes(word)) {
-              categoryScores[category.name] += 5;
+              categoryScores[category.name] += 8; // Increased from 5 to 8
+              console.log(`- Name match on "${word}": +8 points`);
+            }
+          });
+          
+          // Give more weight to description keywords for custom categories
+          descKeywords.forEach(keyword => {
+            if (fullText.includes(keyword)) {
+              // Add more points for description matches in custom categories
+              categoryScores[category.name] += 3; // Additional points beyond the 2 already given
+              console.log(`- Description keyword match on "${keyword}": +3 points`);
+            }
+          });
+          
+          // Special bonus for exact matches of important terms
+          const importantTerms = description
+            .split(/[.,;:]/)
+            .map(phrase => phrase.trim())
+            .filter(phrase => phrase.length > 0);
+            
+          importantTerms.forEach(phrase => {
+            if (fullText.includes(phrase)) {
+              categoryScores[category.name] += 10;
+              console.log(`- Important phrase match on "${phrase}": +10 points`);
             }
           });
         }
@@ -298,12 +324,22 @@ export async function categorizeThreadsWithGroq(
       let bestCategory = categoriesConfig[0];
       let highestScore = 0;
       
+      // Log all category scores for this email
+      console.log(`\nScoring results for email: "${subject.substring(0, 30)}..."`);
       Object.entries(categoryScores).forEach(([categoryName, score]) => {
+        const isCustom = categoriesConfig.find(c => c.name === categoryName)?.isDefault === false;
+        console.log(`- ${categoryName}${isCustom ? ' (custom)' : ''}: ${score} points`);
+        
         if (score > highestScore) {
           highestScore = score;
           bestCategory = categoriesConfig.find(c => c.name === categoryName) || categoriesConfig[0];
         }
       });
+      
+      // Log the winning category
+      console.log(`Selected category: ${bestCategory.name} (score: ${highestScore})`);
+      console.log(`IsDefault: ${bestCategory.isDefault !== false ? 'Yes' : 'No (Custom)'}`);
+      console.log('-----------------------------------------');
       
       // If we have a score, assign to the best category
       if (highestScore > 0) {

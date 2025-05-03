@@ -91,10 +91,40 @@ const EmailView = () => {
       const batchSize = 50;
       const emailsToProcess = emailThreads.slice(0, batchSize);
       
-      console.log(`Categorizing ${emailsToProcess.length} emails (out of ${emailThreads.length} total)`);
+      // Log all available categories for debugging
+      console.log("=== Available Categories for Categorization ===");
+      categories.forEach((cat, index) => {
+        console.log(`${index + 1}. ${cat.name}: ${cat.description} (isDefault: ${cat.isDefault})`);
+      });
+      console.log("===============================================");
       
-      const categorized = await categorizeGmailThreads(emailsToProcess, categories);
-      setCategorizedThreads(categorized);
+      console.log(`Categorizing ${emailsToProcess.length} emails (out of ${emailThreads.length} total) into ${categories.length} categories`);
+      
+      // Always ensure we get the latest categories from Firestore
+      if (user) {
+        try {
+          const refreshedCategories = await getUserCategories(user);
+          if (refreshedCategories.length > 0) {
+            console.log(`Using ${refreshedCategories.length} categories from Firestore`);
+            setCategories(refreshedCategories);
+            // Use the refreshed categories for this categorization
+            const categorized = await categorizeGmailThreads(emailsToProcess, refreshedCategories);
+            setCategorizedThreads(categorized);
+          } else {
+            // Fallback to existing categories
+            const categorized = await categorizeGmailThreads(emailsToProcess, categories);
+            setCategorizedThreads(categorized);
+          }
+        } catch (refreshError) {
+          console.error("Error refreshing categories, using current ones:", refreshError);
+          const categorized = await categorizeGmailThreads(emailsToProcess, categories);
+          setCategorizedThreads(categorized);
+        }
+      } else {
+        // No user, use current categories
+        const categorized = await categorizeGmailThreads(emailsToProcess, categories);
+        setCategorizedThreads(categorized);
+      }
       
       // Let the user know we're only processing a subset
       if (emailThreads.length > batchSize) {

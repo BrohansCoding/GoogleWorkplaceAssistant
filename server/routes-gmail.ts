@@ -125,10 +125,11 @@ export function registerGmailRoutes(app: Express): void {
       
       console.log(`Categorizing ${threadsToProcess.length} threads into ${categories.length} categories`);
       
-      // Format categories for Groq API
+      // Format categories for Groq API - preserve isDefault flag
       const categoriesConfig = categories.map(cat => ({
         name: cat.name,
-        description: cat.description
+        description: cat.description,
+        isDefault: cat.isDefault === false ? false : true // Ensure custom buckets have isDefault: false
       }));
       
       try {
