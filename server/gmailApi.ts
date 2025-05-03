@@ -200,11 +200,11 @@ export async function fetchGmailThreads(
 
 // Function to categorize Gmail threads using Groq (enhanced version with AI integration)
 // Define a type for categories
-export type CategoryConfig = { 
-  name: string, 
-  description: string, 
-  isDefault?: boolean 
-};
+export interface CategoryConfig { 
+  name: string;
+  description: string;
+  isDefault?: boolean;
+}
 
 export async function categorizeThreadsWithGroq(
   threads: GmailThread[] | any[],
@@ -528,9 +528,10 @@ function categorizeEmailWithRules(
     console.log(`- ${categoryName}${isCustom ? ' (custom)' : ''}: ${score} points${exactNameMatch ? ' (EXACT MATCH)' : ''}${isCustom ? ' (includes custom boost)' : ''}`);
     
     // Keep track of the best custom category separately
-    if (isCustom && score > highestCustomScore) {
+    if (isCustom && score > highestCustomScore && category) {
       highestCustomScore = score;
-      bestCustomCategory = category;
+      // Explicitly type-cast category to resolve TypeScript issue
+      bestCustomCategory = category as CategoryConfig;
     }
     
     // Also track overall highest score
@@ -547,12 +548,9 @@ function categorizeEmailWithRules(
   // and there's any score at all, prioritize it even if not the absolute highest
   if (!hasExactMatch && bestCustomCategory && highestCustomScore > 0 && 
       highestCustomScore >= Math.max(5, highestScore * 0.4)) {
-    // TypeScript safety check to ensure bestCustomCategory is not null
-    if (bestCustomCategory !== null) {
-      console.log(`Prioritizing custom category ${bestCustomCategory.name} (score: ${highestCustomScore}) over default category with score ${highestScore}`);
-      bestCategory = bestCustomCategory;
-      highestScore = highestCustomScore;
-    }
+    console.log(`Prioritizing custom category score: ${highestCustomScore} over default category with score ${highestScore}`);
+    bestCategory = bestCustomCategory;
+    highestScore = highestCustomScore;
   }
   
   // Log the winning category
