@@ -37,7 +37,7 @@ export function registerGmailRoutes(app: Express): void {
           subject: (thread as any).subject || '(No Subject)',
           from: (thread as any).from || '',
           date: (thread as any).date || new Date().toISOString(),
-          messages: thread.messages?.map(message => ({
+          messages: thread.messages?.map((message: any) => ({
             id: message.id,
             threadId: message.threadId,
             snippet: message.snippet || '',

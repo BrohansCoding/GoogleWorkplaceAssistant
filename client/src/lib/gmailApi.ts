@@ -99,21 +99,30 @@ export const categorizeGmailThreads = async (
     }
 
     // Call the server endpoint for categorization
-    const response = await apiRequest('/api/gmail/categorize', {
+    const response = await fetch('/api/gmail/categorize', {
       method: 'POST',
-      data: {
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
         threads,
         categories,
         customPrompt
-      }
+      }),
+      credentials: 'include'
     });
 
-    if (!response || !response.categorizedThreads) {
-      console.error('Unexpected categorization response format:', response);
+    if (!response.ok) {
+      throw new Error(`Failed to categorize emails: ${response.status} ${response.statusText}`);
+    }
+
+    const data = await response.json();
+    if (!data || !data.categorizedThreads) {
+      console.error('Unexpected categorization response format:', data);
       return [];
     }
 
-    return response.categorizedThreads;
+    return data.categorizedThreads;
   } catch (error) {
     console.error('Error categorizing Gmail threads:', error);
     throw error;
