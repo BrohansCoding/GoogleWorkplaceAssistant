@@ -99,16 +99,16 @@ export async function fetchGmailThreads(
     // Process the threads to extract useful info
     return threads.map((thread) => {
       // Find the most recent message in the thread
-      const latestMessage = thread.messages.reduce((latest, current) => {
+      const latestMessage = thread.messages.reduce((latest: GmailMessage, current: GmailMessage) => {
         const latestDate = parseInt(latest.internalDate || '0');
         const currentDate = parseInt(current.internalDate || '0');
         return currentDate > latestDate ? current : latest;
       }, thread.messages[0]);
 
       // Extract headers from the latest message
-      const subject = latestMessage.payload?.headers.find(h => h.name.toLowerCase() === 'subject')?.value || '(No Subject)';
-      const from = latestMessage.payload?.headers.find(h => h.name.toLowerCase() === 'from')?.value || '';
-      const date = latestMessage.payload?.headers.find(h => h.name.toLowerCase() === 'date')?.value || '';
+      const subject = latestMessage.payload?.headers.find((h: {name: string, value: string}) => h.name.toLowerCase() === 'subject')?.value || '(No Subject)';
+      const from = latestMessage.payload?.headers.find((h: {name: string, value: string}) => h.name.toLowerCase() === 'from')?.value || '';
+      const date = latestMessage.payload?.headers.find((h: {name: string, value: string}) => h.name.toLowerCase() === 'date')?.value || '';
 
       // Add these as computed properties to the thread object
       return {
@@ -132,11 +132,11 @@ export async function fetchGmailThreads(
 
 // Function to categorize Gmail threads using Groq
 export async function categorizeThreadsWithGroq(
-  threads: any[],
+  threads: GmailThread[] | any[],
   categoriesConfig: { name: string, description: string }[],
   groqApiFunction: Function,
   customPrompt?: string
-): Promise<{ category: string, threads: any[] }[]> {
+): Promise<{ category: string, threads: GmailThread[] | any[] }[]> {
   // Prepare message with category descriptions and emails
   const defaultPrompt = `
     You are an expert email classifier. Your task is to categorize the following emails into the most appropriate category.

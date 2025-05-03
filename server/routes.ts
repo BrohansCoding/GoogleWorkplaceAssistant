@@ -2,7 +2,7 @@ import type { Express, Request, Response } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import axios from "axios";
-import { GroqChatRequest } from "@shared/schema";
+import { GroqChatRequest, EmailCategoryType, GmailCategorizeRequest } from "@shared/schema";
 import { getGroqCompletion } from "./groqApi";
 import {
   getGoogleDriveFileMetadata,
@@ -11,6 +11,7 @@ import {
   extractFileIdFromUrl,
   extractIdFromUrl
 } from "./driveApi";
+import { fetchGmailThreads, categorizeThreadsWithGroq } from "./gmailApi";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Auth routes

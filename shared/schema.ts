@@ -123,3 +123,57 @@ export interface GroqChatRequest {
     };
   };
 }
+
+// Email related types
+export interface EmailThreadType {
+  id: string;
+  threadId?: string;
+  snippet: string;
+  subject: string;
+  from: string;
+  date: string;
+  category?: string;
+  messages?: EmailMessageType[];
+  labelIds?: string[];
+}
+
+export interface EmailMessageType {
+  id: string;
+  threadId: string;
+  snippet: string;
+  payload?: {
+    headers: {
+      name: string;
+      value: string;
+    }[];
+    mimeType: string;
+    body?: {
+      data?: string;
+      size?: number;
+    };
+    parts?: {
+      mimeType: string;
+      body?: {
+        data?: string;
+        size?: number;
+      };
+    }[];
+  };
+  labelIds?: string[];
+  internalDate?: string;
+}
+
+export interface EmailCategoryType {
+  id: string;
+  name: string;
+  description: string;
+  isDefault: boolean;
+  color?: string;
+  userId?: string;
+}
+
+export interface GmailCategorizeRequest {
+  threads: EmailThreadType[];
+  categories: EmailCategoryType[];
+  customPrompt?: string;
+}
