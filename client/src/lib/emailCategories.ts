@@ -6,7 +6,8 @@ import {
   getDocs, 
   query, 
   where, 
-  serverTimestamp 
+  serverTimestamp,
+  deleteDoc
 } from "firebase/firestore";
 import { db } from "./firebase-setup";
 import { EmailCategoryType } from "@shared/schema";
@@ -268,8 +269,87 @@ export const createCustomCategory = async (
 };
 
 /**
- * Get all category buckets for a user (custom + default)
+ * Delete a custom category from Firestore
+ * @param user Current authenticated user
+ * @param categoryId ID of the category to delete
+ * @returns true if successful, throws error otherwise
  */
+export const deleteCustomCategory = async (
+  user: User,
+  categoryId: string
+): Promise<boolean> => {
+  if (!user) {
+    throw new Error("Cannot delete category: No authenticated user");
+  }
+  
+  console.log("=======================================");
+  console.log(`DELETING CATEGORY: "${categoryId}"`);
+  console.log("User:", user.email);
+  console.log("User UID:", user.uid);
+  console.log("=======================================");
+  
+  // First check current token status
+  try {
+    // Refreshing the token to ensure it's up-to-date
+    const idToken = await user.getIdToken(true);
+    const idTokenResult = await user.getIdTokenResult();
+    
+    console.log("Firebase ID token details:");
+    console.log("- Token length:", idToken.length);
+    console.log("- Token expiration:", new Date(idTokenResult.expirationTime).toLocaleString());
+  } catch (tokenError) {
+    console.warn("Could not refresh token:", tokenError);
+  }
+  
+  try {
+    // Try to delete from customBuckets subcollection first (new structure)
+    console.log(`Deleting category from customBuckets: users/${user.uid}/customBuckets/${categoryId}`);
+    const bucketDocRef = doc(db, "users", user.uid, "customBuckets", categoryId);
+    
+    // Check if the document exists first
+    const bucketDoc = await getDoc(bucketDocRef);
+    if (bucketDoc.exists()) {
+      console.log("Category document found, deleting...");
+      await deleteDoc(bucketDocRef);
+      console.log("Category successfully deleted from Firestore");
+      return true;
+    } else {
+      console.log("Category document not found in customBuckets");
+      
+      // Try deleting from old emailCategories subcollection as fallback
+      console.log(`Fallback: Trying old location at users/${user.uid}/emailCategories/${categoryId}`);
+      const oldCategoryRef = doc(db, "users", user.uid, "emailCategories", categoryId);
+      
+      const oldCategoryDoc = await getDoc(oldCategoryRef);
+      if (oldCategoryDoc.exists()) {
+        console.log("Category found in old location, deleting...");
+        await deleteDoc(oldCategoryRef);
+        console.log("Category successfully deleted from old location");
+        return true;
+      } else {
+        console.log("Category not found in old location either");
+        // We'll just return true anyway since the category is already gone from the UI
+        // This prevents unnecessary error messages
+        return true;
+      }
+    }
+  } catch (error: any) {
+    console.error("Error deleting category from Firestore:", error);
+    
+    // Log specific details about the error
+    if (error && error.code) {
+      console.error(`Firebase error code: ${error.code}`);
+      
+      if (error.code === 'permission-denied') {
+        console.error("PERMISSION DENIED ERROR: Your Firebase security rules are preventing category deletion.");
+        console.error("Please make sure your security rules allow writing to the customBuckets subcollection.");
+      }
+    }
+    
+    throw error;
+  }
+};
+
 export const getUserCategories = async (user: User): Promise<EmailCategoryType[]> => {
   if (!user) {
     console.warn("No authenticated user, returning default categories");
