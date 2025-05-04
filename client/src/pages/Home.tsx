@@ -11,10 +11,11 @@ import { useUnifiedAuth } from "@/hooks/useUnifiedAuth";
 import { MobileContext } from "@/context/MobileContext";
 
 const Home = () => {
-  const { isAuthenticated, isLoading } = useUnifiedAuth();
+  const { isAuthenticated, isLoading, hasOAuthToken, login } = useUnifiedAuth();
   const mobileContext = useContext(MobileContext);
   const [activeView, setActiveView] = useState<"calendar" | "folders" | "email" | "home">("home");
   const [showChat, setShowChat] = useState(true);
+  const [loadingTimeout, setLoadingTimeout] = useState(false);
   
   // Get mobile state safely
   const isMobile = mobileContext?.isMobile || false;
@@ -31,11 +32,85 @@ const Home = () => {
     setActiveView("home");
   }, []);
   
+  // Force loading timeout after 10 seconds to prevent infinite loading
+  useEffect(() => {
+    if (isLoading) {
+      const timer = setTimeout(() => {
+        setLoadingTimeout(true);
+      }, 10000);
+      
+      return () => clearTimeout(timer);
+    } else {
+      setLoadingTimeout(false);
+    }
+  }, [isLoading]);
+
+  // Handle manual retry if loading times out
+  const handleRetry = () => {
+    window.location.reload();
+  };
+  
+  // Handle request for reconnection
+  const handleReconnect = async () => {
+    try {
+      // Clear any previous local storage flags to ensure clean authentication
+      localStorage.removeItem('RE_AUTH_IN_PROGRESS');
+      await login();
+    } catch (error) {
+      console.error("Failed to reconnect:", error);
+    }
+  };
+  
+  // Show loading timeout error
+  if (isLoading && loadingTimeout) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-900 to-gray-800">
+        <div className="text-center max-w-md px-4">
+          <h2 className="text-xl font-semibold text-white mb-4">Loading Taking Too Long</h2>
+          <p className="text-gray-300 mb-6">
+            There seems to be an issue with authentication. You can try manually reloading
+            the page or click the button below.
+          </p>
+          <Button 
+            onClick={handleRetry} 
+            className="bg-blue-600 hover:bg-blue-500"
+          >
+            <div className="flex items-center gap-2">
+              <div className="animate-spin rounded-full h-4 w-4 border-2 border-white"></div>
+              <span>Retry Authentication</span>
+            </div>
+          </Button>
+        </div>
+      </div>
+    );
+  }
+  
   // If the user is not authenticated, show the welcome screen
   if (!isLoading && !isAuthenticated) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-gray-900 to-gray-800">
         <WelcomeScreen onAuthSuccess={handleAuthSuccess} />
+      </div>
+    );
+  }
+  
+  // Show the reconnection screen if authenticated but missing OAuth token
+  if (!isLoading && isAuthenticated && !hasOAuthToken) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-900 to-gray-800">
+        <div className="text-center max-w-md px-4">
+          <h2 className="text-xl font-semibold text-white mb-4">Additional Permissions Needed</h2>
+          <p className="text-gray-300 mb-6">
+            You're signed in, but you need to grant access to your Google Workspace 
+            (Calendar, Drive, and Gmail) to use this application.
+          </p>
+          <Button 
+            onClick={handleReconnect} 
+            className="bg-emerald-600 hover:bg-emerald-500"
+          >
+            Connect Google Workspace
+          </Button>
+        </div>
       </div>
     );
   }

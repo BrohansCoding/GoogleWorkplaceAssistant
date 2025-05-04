@@ -19,18 +19,43 @@ export const storeOAuthToken = (
   expiresIn: number = 3600, 
   refreshToken?: string
 ): TokenData => {
+  // First, check if we already have a refresh token we should keep
+  let existingRefreshToken: string | undefined;
+  try {
+    const existingData = localStorage.getItem(OAUTH_TOKEN_STORAGE_KEY);
+    if (existingData) {
+      const parsed = JSON.parse(existingData) as TokenData;
+      existingRefreshToken = parsed.refreshToken;
+    }
+  } catch (e) {
+    console.error('Error reading existing token data:', e);
+  }
+  
+  // Use the provided refresh token, or fall back to an existing one
+  const finalRefreshToken = refreshToken || existingRefreshToken;
+  
   const expiry = Date.now() + (expiresIn * 1000);
   const tokenData: TokenData = { 
     token, 
     expiry,
-    refreshToken,
+    refreshToken: finalRefreshToken,
     tokenType: 'oauth'
   };
   
   // Store in localStorage to persist across browser sessions
   localStorage.setItem(OAUTH_TOKEN_STORAGE_KEY, JSON.stringify(tokenData));
   console.log(`OAuth token stored. Access token expires in ${expiresIn} seconds.`);
-  console.log(`Refresh token ${refreshToken ? 'stored' : 'not provided'}`);
+  console.log(`Refresh token ${finalRefreshToken ? 'stored' : 'not provided'}`);
+  
+  // Dispatch event for cross-tab communication
+  try {
+    const event = new CustomEvent('oauth-token-updated', { 
+      detail: { hasToken: true, hasRefreshToken: !!finalRefreshToken }
+    });
+    window.dispatchEvent(event);
+  } catch (e) {
+    console.error('Error broadcasting token update:', e);
+  }
   
   // Set up refresh timer
   scheduleTokenRefresh(tokenData);
@@ -41,27 +66,35 @@ export const storeOAuthToken = (
 // Get stored OAuth token if valid
 export const getStoredOAuthToken = (): TokenData | null => {
   const tokenData = localStorage.getItem(OAUTH_TOKEN_STORAGE_KEY);
-  if (!tokenData) return null;
+  if (!tokenData) {
+    console.log('No OAuth token found in storage');
+    return null;
+  }
   
   try {
     const data = JSON.parse(tokenData) as TokenData;
-    data.tokenType = 'oauth'; // Ensure token type is set
     
-    // Return data even if access token is expired when refresh token is available
+    // Ensure token type is set
+    data.tokenType = 'oauth'; 
+    
+    // Always return data if we have a refresh token, even if access token is expired
+    // This allows the token refresh mechanism to work
     if (data.refreshToken) {
-      // If we have a refresh token, return the data even if token is expired
       return data;
     }
     
-    // No refresh token, only return if access token is still valid
-    if (Date.now() > (data.expiry - TOKEN_REFRESH_THRESHOLD)) {
-      console.log('Stored OAuth token is expired or will expire soon and no refresh token available');
+    // When we don't have a refresh token, check if the access token is still valid
+    const timeUntilExpiry = data.expiry - Date.now();
+    if (timeUntilExpiry <= TOKEN_REFRESH_THRESHOLD) {
+      console.log(`Stored OAuth token is expired or will expire soon (${Math.floor(timeUntilExpiry/1000)}s left) and no refresh token available`);
       return null;
     }
     
     return data;
   } catch (e) {
     console.error('Error parsing stored OAuth token:', e);
+    // Clear the invalid token data
+    localStorage.removeItem(OAUTH_TOKEN_STORAGE_KEY);
     return null;
   }
 };
