@@ -5,20 +5,11 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import NotFound from "@/pages/not-found";
 import Home from "@/pages/Home";
-import { useContext } from "react";
-import { AuthContext } from "@/components/SimpleAuthProvider";
-import NewLoginButton from "@/components/NewLoginButton";
-import SimpleAuthProvider from "@/components/SimpleAuthProvider";
+import { MobileProvider } from "@/context/MobileContext";
+import UnifiedAuthProvider from "@/components/UnifiedAuthProvider";
 import { CalendarProvider } from "@/context/CalendarContext";
 
 function Router() {
-  // Get authentication state from context
-  const { user, isLoading } = useContext(AuthContext);
-  
-  console.log("Router: rendering with user:", user ? "authenticated" : "not authenticated");
-  
-  // Always show the app, even for unauthenticated users
-  // The Home component will handle showing the welcome page for unauthenticated users
   return (
     <Switch>
       <Route path="/" component={Home} />
@@ -30,14 +21,16 @@ function Router() {
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
-      <SimpleAuthProvider>
-        <CalendarProvider>
-          <TooltipProvider>
-            <Toaster />
-            <Router />
-          </TooltipProvider>
-        </CalendarProvider>
-      </SimpleAuthProvider>
+      <UnifiedAuthProvider>
+        <MobileProvider>
+          <CalendarProvider>
+            <TooltipProvider>
+              <Toaster />
+              <Router />
+            </TooltipProvider>
+          </CalendarProvider>
+        </MobileProvider>
+      </UnifiedAuthProvider>
     </QueryClientProvider>
   );
 }

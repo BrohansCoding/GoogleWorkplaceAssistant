@@ -3,8 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { CalendarIcon, LogOut, Folder, Mail, ArrowLeft } from "lucide-react";
 import { MobileContext } from "@/context/MobileContext";
-import { AuthContext } from "@/components/SimpleAuthProvider";
-import { signOut as firebaseSignOut } from "@/lib/firebase";
+import { useUnifiedAuth } from "@/hooks/useUnifiedAuth";
 
 interface HeaderProps {
   activeView: "calendar" | "folders" | "email" | "home";
@@ -12,22 +11,15 @@ interface HeaderProps {
 }
 
 const Header = ({ activeView, setActiveView }: HeaderProps) => {
-  const authContext = useContext(AuthContext);
+  const { user, logout } = useUnifiedAuth();
   const mobileContext = useContext(MobileContext);
-  const user = authContext?.user || null;
   const isMobile = mobileContext?.isMobile || false;
 
   const handleLogout = async () => {
     try {
       console.log("Header: Sign out requested");
-      // Sign out of Firebase
-      await firebaseSignOut();
-      
-      // Clear session on server
-      await fetch('/api/auth/signout', {
-        method: 'POST',
-        credentials: 'include'
-      });
+      await logout();
+      setActiveView("home");
     } catch (error) {
       console.error("Logout failed:", error);
     }
