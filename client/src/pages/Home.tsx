@@ -26,11 +26,16 @@ const Home = () => {
     setActiveView("calendar");
   };
   
-  // Always start on home screen when component is loaded the first time
+  // Check if user is already authenticated on component load
   useEffect(() => {
-    // Make sure we show the home view by default
-    setActiveView("home");
-  }, []);
+    if (isAuthenticated && hasOAuthToken) {
+      // If already authenticated, go to calendar view (dashboard)
+      setActiveView("calendar");
+    } else {
+      // Otherwise show home/welcome screen
+      setActiveView("home");
+    }
+  }, [isAuthenticated, hasOAuthToken]);
   
   // Force loading timeout after 10 seconds to prevent infinite loading
   useEffect(() => {

@@ -29,11 +29,8 @@ const Header = ({ activeView, setActiveView }: HeaderProps) => {
     <header className="bg-gray-900/80 backdrop-blur-lg border-b border-gray-700 shadow-sm sticky top-0 z-10">
       <div className="container mx-auto px-4 py-3">
         <div className="flex justify-between items-center mb-2">
-          <div className="flex items-center gap-3">
-            <div className="bg-blue-900 p-1.5 rounded-full">
-              <CalendarIcon className="h-5 w-5 text-blue-400" />
-            </div>
-            <h1 className="text-xl font-medium hidden md:block text-white">G Assistant</h1>
+          <div className="flex items-center">
+            <h1 className="text-xl font-medium text-white">Google Workspace Assistant</h1>
           </div>
           
           <div className="flex items-center gap-2">
