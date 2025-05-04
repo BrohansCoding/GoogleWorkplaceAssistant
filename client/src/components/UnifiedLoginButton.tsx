@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import { Loader2, LogIn, CheckCircle } from "lucide-react";
+import { Loader2, LogIn, CheckCircle, AlertCircle, ExternalLink } from "lucide-react";
 import { useUnifiedAuth } from "@/hooks/useUnifiedAuth";
 import { useToast } from "@/hooks/use-toast";
 
@@ -25,8 +25,18 @@ const UnifiedLoginButton = ({
 }: UnifiedLoginButtonProps) => {
   const [isLoggingIn, setIsLoggingIn] = useState(false);
   const [justConnected, setJustConnected] = useState(false);
+  const [loginError, setLoginError] = useState<string | null>(null);
   const { login, isAuthenticated, hasOAuthToken } = useUnifiedAuth();
   const { toast } = useToast();
+  
+  // Check for Firebase configuration
+  const hasValidFirebaseConfig = () => {
+    const apiKey = import.meta.env.VITE_FIREBASE_API_KEY;
+    const projectId = import.meta.env.VITE_FIREBASE_PROJECT_ID;
+    const appId = import.meta.env.VITE_FIREBASE_APP_ID;
+    
+    return Boolean(apiKey && projectId && appId);
+  };
   
   useEffect(() => {
     if (isAuthenticated && hasOAuthToken && justConnected) {
@@ -39,6 +49,7 @@ const UnifiedLoginButton = ({
       
       // Reset our state
       setJustConnected(false);
+      setLoginError(null);
       
       // Trigger success callback after a short delay
       if (onSuccess) {
@@ -53,8 +64,22 @@ const UnifiedLoginButton = ({
       return;
     }
     
+    // Validate Firebase configuration first
+    if (!hasValidFirebaseConfig()) {
+      console.error("Missing Firebase configuration. Check environment variables.");
+      toast({
+        title: "Configuration Error",
+        description: "Firebase configuration is incomplete. Please check the application setup.",
+        variant: "destructive",
+        duration: 5000
+      });
+      setLoginError("Firebase configuration error. Please check environment variables.");
+      return;
+    }
+    
     try {
       setIsLoggingIn(true);
+      setLoginError(null);
       
       // Show a toast to inform the user what's happening
       toast({
@@ -65,12 +90,31 @@ const UnifiedLoginButton = ({
       
       await login();
       setJustConnected(true);
-    } catch (error) {
+    } catch (error: any) {
       console.error("Login error:", error);
+      
+      // Determine the error type to provide more helpful messages
+      let errorMessage = "There was a problem connecting to Google. Please try again.";
+      
+      if (error.code === 'auth/popup-blocked') {
+        errorMessage = "Popup was blocked by your browser. Please enable popups or try using Incognito mode.";
+      } else if (error.code === 'auth/popup-closed-by-user') {
+        errorMessage = "Authentication popup was closed before completing the sign-in process.";
+      } else if (error.code === 'auth/unauthorized-domain') {
+        errorMessage = "This domain is not authorized for Firebase authentication. Check Firebase Console settings.";
+      } else if (error.message && error.message.includes('CORS')) {
+        errorMessage = "Cross-origin request blocked. Check Firebase Authentication domain settings.";
+      } else if (error.code === 'auth/network-request-failed') {
+        errorMessage = "Network error. Check your internet connection and try again.";
+      }
+      
+      setLoginError(errorMessage);
+      
       toast({
         title: "Connection failed",
-        description: "There was a problem connecting to Google. Please try again.",
+        description: errorMessage,
         variant: "destructive",
+        duration: 7000
       });
     } finally {
       setIsLoggingIn(false);
@@ -93,31 +137,56 @@ const UnifiedLoginButton = ({
   }
   
   return (
-    <Button
-      variant={variant}
-      size={size}
-      className={`${fullWidth ? 'w-full' : ''} ${className}`}
-      onClick={handleLogin}
-      disabled={isLoggingIn}
-    >
-      {isLoggingIn ? (
-        <>
-          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-          Connecting to Google...
-        </>
-      ) : (
-        <>
-          {showIcon && (
-            <img 
-              src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" 
-              alt="Google logo" 
-              className="mr-2 h-4 w-4" 
-            />
-          )}
-          {text}
-        </>
+    <div className="flex flex-col">
+      <Button
+        variant={variant}
+        size={size}
+        className={`${fullWidth ? 'w-full' : ''} ${className}`}
+        onClick={handleLogin}
+        disabled={isLoggingIn}
+      >
+        {isLoggingIn ? (
+          <>
+            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            Connecting to Google...
+          </>
+        ) : (
+          <>
+            {showIcon && (
+              <img 
+                src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" 
+                alt="Google logo" 
+                className="mr-2 h-4 w-4" 
+              />
+            )}
+            {text}
+          </>
+        )}
+      </Button>
+      
+      {/* Error message display */}
+      {loginError && (
+        <div className="mt-4 p-4 border border-red-700 bg-red-900/20 rounded-md text-red-400 text-sm">
+          <div className="flex items-start gap-2">
+            <AlertCircle className="h-5 w-5 flex-shrink-0 mt-0.5" />
+            <div>
+              <p className="font-medium">{loginError}</p>
+              <p className="mt-2 text-xs text-red-300">
+                If using a deployed app, make sure your domain is added to the authorized domains in Firebase Authentication settings.
+                <a 
+                  href="https://console.firebase.google.com/" 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="flex items-center mt-1 text-red-300 hover:text-red-200"
+                >
+                  Open Firebase Console <ExternalLink className="ml-1 h-3 w-3" />
+                </a>
+              </p>
+            </div>
+          </div>
+        </div>
       )}
-    </Button>
+    </div>
   );
 };
 

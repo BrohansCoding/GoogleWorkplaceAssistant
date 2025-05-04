@@ -110,8 +110,46 @@ The application uses Firebase Firestore for data management:
 
 1. Create a Firebase project in the [Firebase Console](https://console.firebase.google.com/)
 2. Enable Firebase Authentication with Google sign-in
-3. Set up Firestore Database with appropriate security rules (see Troubleshooting section)
-4. Copy your Firebase configuration (apiKey, projectId, appId) to the environment variables
+3. In the Firebase Authentication settings, add your app domain (both development and production URLs) to the "Authorized domains" list
+4. Set up Firebase security rules for Firestore Database (see example below)
+5. Copy your Firebase configuration (apiKey, projectId, appId) to the environment variables
+
+### Important: Firebase Authentication Domain Configuration
+
+For login to work properly in your deployed app:
+1. Go to Firebase Console → Authentication → Settings → Authorized domains
+2. Add your deployment domain (e.g., `your-app.replit.app`) to the list
+3. If using a custom domain, add that as well
+
+### Firebase Security Rules
+
+The application requires the following minimum security rules for Firestore:
+
+```
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Allow authenticated users to read/write their own data
+    match /users/{userId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+      
+      // Allow users to read/write their own customBuckets
+      match /customBuckets/{bucketId} {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+      }
+      
+      // Allow users to read/write their email categories
+      match /emailCategories/{categoryId} {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+      }
+    }
+    
+    // For testing purposes only - remove in production
+    match /test_connection/{docId} {
+      allow read, write: if request.auth != null;
+    }
+  }
+}
 
 ## Groq AI Integration
 
@@ -163,6 +201,30 @@ For Replit deployment:
 - Deployment target is set to autoscale
 - Build and run commands are preconfigured in the .replit file
 
+### Important Deployment Checklist
+
+Before deploying the application, make sure to:
+
+1. **Set Environment Variables**: Add all Firebase configuration values as environment variables in your deployment environment:
+   - `VITE_FIREBASE_API_KEY`
+   - `VITE_FIREBASE_PROJECT_ID`
+   - `VITE_FIREBASE_APP_ID`
+
+2. **Configure Firebase Authentication**: 
+   - Go to Firebase Console → Authentication → Settings → Authorized domains
+   - Add your deployment domain (e.g., `your-app.replit.app`) to the list
+   - Without this step, Firebase will block authentication attempts from your deployed domain
+
+3. **Update Firebase Security Rules**:
+   - In Firebase Console, go to Firestore Database → Rules
+   - Update the rules according to the example in the Firebase Setup section
+   - Without proper security rules, even successful authentication will result in "permission-denied" errors
+
+4. **Google Cloud OAuth Screen**:
+   - If you're using your own Google Cloud project, make sure your OAuth consent screen is properly configured
+   - Add your deployment domain to the authorized redirect URIs
+   - For testing, you can set the OAuth consent screen to "External" and add test users
+
 ## Security Considerations
 
 - This application requires sensitive OAuth permissions. Always deploy with HTTPS enabled.
@@ -201,6 +263,13 @@ If you encounter authentication or permission errors:
    ```
 
 2. **Multiple Tabs**: If you see a "failed-precondition" error, it means Firebase offline persistence is already enabled in another tab. This is normal and won't affect functionality.
+
+3. **Sign-in Button Not Working in Deployed App**: If clicking the sign-in button does nothing or results in an error:
+   - Make sure your deployed app domain is added to the authorized domains in Firebase Authentication settings
+   - Check for any popup blockers in your browser (the app attempts to use popup authentication first)
+   - Try using incognito/private mode to rule out browser extension issues
+   - Verify that your Firebase configuration variables are correctly set in your deployment environment (VITE_FIREBASE_API_KEY, VITE_FIREBASE_PROJECT_ID, VITE_FIREBASE_APP_ID)
+   - In the browser console, check for CORS errors which might indicate domain configuration issues
 
 ### OAuth Token Issues
 
