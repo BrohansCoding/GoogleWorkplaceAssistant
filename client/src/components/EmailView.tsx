@@ -1,7 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { Mail, Plus, X, Inbox, Loader2, Settings, Tag, RefreshCw, ShieldCheck, MoveRight, Trash2 } from "lucide-react";
-import { useAuth } from "@/hooks/useAuth";
-import EmailAuthButton from "./EmailAuthButton";
+import { useUnifiedAuth } from "@/hooks/useUnifiedAuth";
 import { Button } from "@/components/ui/button";
 import { fetchGmailThreads, categorizeGmailThreads } from "@/lib/gmailApi";
 import { 
@@ -31,8 +30,7 @@ import {
 import { useToast } from "@/hooks/use-toast";
 
 const EmailView = () => {
-  const { user } = useAuth();
-  // Ensure user is treated as a Firebase User type
+  const { user, isAuthenticated, hasOAuthToken } = useUnifiedAuth();
   const { toast } = useToast();
   const [threads, setThreads] = useState<EmailThreadType[]>([]);
   const [categorizedThreads, setCategorizedThreads] = useState<{ category: string, threads: EmailThreadType[] }[]>([]);
@@ -582,18 +580,18 @@ const EmailView = () => {
   };
   
   // Render authentication prompt if not logged in
-  if (!user) {
+  if (!isAuthenticated || !hasOAuthToken) {
     return (
       <div className="flex flex-col items-center justify-center h-full p-8 bg-gray-800/60 backdrop-blur-sm">
         <div className="text-center max-w-md p-8 rounded-xl bg-gray-800/80 shadow-lg border border-gray-700">
           <div className="w-20 h-20 mx-auto mb-6 rounded-full bg-purple-900 flex items-center justify-center">
             <Mail className="h-10 w-10 text-purple-400" />
           </div>
-          <h2 className="text-2xl font-bold mb-4 text-purple-400">Email Integration</h2>
+          <h2 className="text-2xl font-bold mb-4 text-purple-400">Email Loading</h2>
           <p className="text-gray-300 mb-6">
-            Connect your Gmail account to access your emails and enable AI-powered email categorization.
+            We're connecting to your Gmail account. This should only take a moment...
           </p>
-          <EmailAuthButton onAuthSuccess={fetchEmails} />
+          <div className="animate-spin rounded-full h-10 w-10 border-2 border-gray-600 border-t-purple-400 mx-auto"></div>
         </div>
       </div>
     );
