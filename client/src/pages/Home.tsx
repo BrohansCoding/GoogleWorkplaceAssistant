@@ -178,8 +178,8 @@ const Home = () => {
               ${showChat ? 'translate-x-0' : 'translate-x-full md:translate-x-0'} 
               transition-transform duration-300`}
             style={{
-              top: isMobile ? '72px' : '72px',
-              height: isMobile ? 'calc(100% - 132px)' : 'calc(100% - 72px)'
+              top: isMobile ? '72px' : '100px', // Adjusted top position to be lower
+              height: isMobile ? 'calc(100% - 132px)' : 'calc(100% - 120px)' // Made height smaller
             }}
           >
             <div className="h-full flex flex-col">

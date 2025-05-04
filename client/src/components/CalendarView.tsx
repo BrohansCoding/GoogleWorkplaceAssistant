@@ -363,14 +363,94 @@ const CalendarView = () => {
               ) : (
                 <>
                   {/* Week View */}
-                  {/* Week view implementation here */}
-                  <div className="flex flex-col items-center justify-center p-6 bg-gray-800/50 rounded-lg border border-gray-700">
-                    <CalendarDays className="h-10 w-10 text-gray-400 mb-3" />
-                    <h3 className="text-lg font-medium text-gray-200 mb-1">Week View Coming Soon</h3>
-                    <p className="text-sm text-gray-400 max-w-xs text-center">
-                      We're still working on the week view. Please check back soon!
-                    </p>
+                  <div className="grid grid-cols-8 gap-1 mb-2">
+                    {/* Time column */}
+                    <div className="col-span-1">
+                      <div className="h-10"></div> {/* Empty cell for the header row */}
+                      {Array.from({ length: 24 }).map((_, hour) => (
+                        <div 
+                          key={`time-${hour}`} 
+                          className="h-16 flex items-start justify-end pr-2 text-xs text-gray-500 font-medium"
+                        >
+                          {hour === 0 ? '12 AM' : hour < 12 ? `${hour} AM` : hour === 12 ? '12 PM' : `${hour - 12} PM`}
+                        </div>
+                      ))}
+                    </div>
+                    
+                    {/* Days of the week */}
+                    {eachDayOfInterval({
+                      start: startOfWeek(selectedDate),
+                      end: endOfWeek(selectedDate)
+                    }).map((day, dayIndex) => (
+                      <div key={`day-${dayIndex}`} className="col-span-1 flex flex-col">
+                        {/* Day header */}
+                        <div 
+                          className={`h-10 text-center py-2 px-1 mb-1 rounded-md text-sm font-medium
+                            ${isSameDay(day, new Date()) ? 'bg-blue-900/60 text-blue-300' : 'bg-gray-800 text-gray-200'}`}
+                        >
+                          <div>{format(day, "EEE")}</div>
+                          <div className="text-xs">{format(day, "d")}</div>
+                        </div>
+                        
+                        {/* Hours grid for this day */}
+                        {Array.from({ length: 24 }).map((_, hour) => {
+                          const currentHourEvents = weekEvents.filter(event => {
+                            const eventDate = new Date(event.start.dateTime);
+                            return isSameDay(eventDate, day) && eventDate.getHours() === hour;
+                          });
+                          
+                          return (
+                            <div 
+                              key={`cell-${dayIndex}-${hour}`} 
+                              className={`h-16 border-t border-gray-800 relative ${
+                                hour >= 9 && hour < 17 ? 'bg-gray-800/20' : 'bg-gray-900/40'
+                              }`}
+                            >
+                              {currentHourEvents.map((event, eventIndex) => (
+                                <div 
+                                  key={`event-${event.id}`}
+                                  className={`absolute z-10 inset-x-0.5 rounded-sm p-1 shadow-md text-xs overflow-hidden
+                                    border-l-2 bg-gray-800/90 backdrop-blur-sm ${
+                                    event.colorId === '1' ? 'border-blue-500 text-blue-200' :
+                                    event.colorId === '2' ? 'border-green-500 text-green-200' :
+                                    event.colorId === '3' ? 'border-purple-500 text-purple-200' :
+                                    event.colorId === '4' ? 'border-red-500 text-red-200' :
+                                    event.colorId === '5' ? 'border-yellow-500 text-yellow-200' :
+                                    event.colorId === '6' ? 'border-cyan-500 text-cyan-200' :
+                                    event.colorId === '7' ? 'border-orange-500 text-orange-200' :
+                                    event.colorId === '8' ? 'border-pink-500 text-pink-200' :
+                                    event.colorId === '9' ? 'border-teal-500 text-teal-200' :
+                                    event.colorId === '10' ? 'border-indigo-500 text-indigo-200' :
+                                    event.colorId === '11' ? 'border-amber-500 text-amber-200' :
+                                    'border-blue-500 text-blue-200'
+                                  }`}
+                                  style={{
+                                    top: '0.125rem',
+                                    height: 'calc(100% - 0.25rem)',
+                                  }}
+                                >
+                                  <div className="font-medium truncate">{event.summary}</div>
+                                  <div className="text-[0.65rem] opacity-80">
+                                    {format(new Date(event.start.dateTime), "h:mm")} - {format(new Date(event.end.dateTime), "h:mm")}
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    ))}
                   </div>
+
+                  {/* Loading skeleton for week view */}
+                  {isLoading && (
+                    <div className="absolute inset-0 bg-gray-900/50 backdrop-blur-sm flex items-center justify-center">
+                      <div className="flex items-center gap-2">
+                        <div className="animate-spin rounded-full h-6 w-6 border-2 border-gray-600 border-t-blue-400"></div>
+                        <span className="text-gray-300 font-medium">Loading calendar...</span>
+                      </div>
+                    </div>
+                  )}
                 </>
               )}
             </div>
