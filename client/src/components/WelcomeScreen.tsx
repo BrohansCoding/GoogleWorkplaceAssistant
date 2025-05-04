@@ -1,14 +1,63 @@
-import { ArrowRight, CalendarIcon, Folder, Mail, BrainCircuit, RocketIcon, SparklesIcon, CheckCircle } from "lucide-react";
+import { ArrowRight, CalendarIcon, Folder, Mail, BrainCircuit, RocketIcon, SparklesIcon, CheckCircle, AlertTriangle, ExternalLink } from "lucide-react";
 import UnifiedLoginButton from "./UnifiedLoginButton";
 import { Button } from "@/components/ui/button";
+import { useUnifiedAuth } from "@/hooks/useUnifiedAuth";
+import { useToast } from "@/hooks/use-toast";
+import { useEffect } from "react";
 
 interface WelcomeScreenProps {
   onAuthSuccess?: () => void;
 }
 
 const WelcomeScreen = ({ onAuthSuccess }: WelcomeScreenProps) => {
+  const { firebaseConfigValid, errorMessage } = useUnifiedAuth();
+  const { toast } = useToast();
+  
+  // Show toast for configuration errors
+  useEffect(() => {
+    if (!firebaseConfigValid && errorMessage) {
+      toast({
+        title: "Configuration Error",
+        description: "Firebase configuration is missing or incomplete. Please check the environment variables.",
+        variant: "destructive",
+        duration: 7000
+      });
+    }
+  }, [firebaseConfigValid, errorMessage, toast]);
+  
   return (
     <div className="flex flex-col items-center w-full h-full">
+      {/* Configuration error banner */}
+      {!firebaseConfigValid && errorMessage && (
+        <div className="w-full bg-red-900/70 text-white px-4 py-3 flex items-start gap-3">
+          <AlertTriangle className="h-5 w-5 flex-shrink-0 mt-0.5 text-red-200" />
+          <div className="flex-1">
+            <h3 className="font-semibold text-red-100">Firebase Configuration Error</h3>
+            <p className="text-sm text-red-200 mt-1">
+              {errorMessage} Please ensure all required environment variables are set.
+            </p>
+            <div className="mt-2 flex flex-wrap gap-2">
+              <a 
+                href="https://console.firebase.google.com/" 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="inline-flex items-center text-xs bg-red-800/50 hover:bg-red-800 px-2 py-1 rounded text-red-100"
+              >
+                Firebase Console <ExternalLink className="ml-1 h-3 w-3" />
+              </a>
+              <a 
+                href="https://github.com/username/repo/blob/main/README.md#firebase-setup" 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="inline-flex items-center text-xs bg-red-800/50 hover:bg-red-800 px-2 py-1 rounded text-red-100"
+              >
+                Setup Instructions <ExternalLink className="ml-1 h-3 w-3" />
+              </a>
+            </div>
+          </div>
+        </div>
+      )}
+      
       {/* Hero section */}
       <div className="w-full bg-gradient-to-r from-blue-900/40 to-emerald-800/30 backdrop-blur p-8 md:p-16 flex flex-col items-center">
         <h1 className="text-3xl md:text-4xl font-bold text-white mb-4 text-center">Google Workspace Assistant</h1>

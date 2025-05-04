@@ -14,6 +14,8 @@ export interface UnifiedAuthContextType {
   isLoading: boolean;
   isAuthenticated: boolean;
   hasOAuthToken: boolean;
+  firebaseConfigValid: boolean;
+  errorMessage: string | null;
   login: () => Promise<void>;
   logout: () => Promise<void>;
 }
@@ -24,6 +26,8 @@ export const UnifiedAuthContext = createContext<UnifiedAuthContextType>({
   isLoading: true,
   isAuthenticated: false,
   hasOAuthToken: false,
+  firebaseConfigValid: false,
+  errorMessage: null,
   login: async () => {},
   logout: async () => {}
 });
@@ -36,7 +40,30 @@ export const UnifiedAuthProvider = ({ children }: UnifiedAuthProviderProps) => {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [hasOAuthToken, setHasOAuthToken] = useState(false);
+  const [firebaseConfigValid, setFirebaseConfigValid] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const { toast } = useToast();
+  
+  // Check if Firebase config is valid
+  useEffect(() => {
+    const apiKey = import.meta.env.VITE_FIREBASE_API_KEY;
+    const projectId = import.meta.env.VITE_FIREBASE_PROJECT_ID;
+    const appId = import.meta.env.VITE_FIREBASE_APP_ID;
+    
+    const configValid = Boolean(apiKey && projectId && appId);
+    setFirebaseConfigValid(configValid);
+    
+    if (!configValid) {
+      const missing = [];
+      if (!apiKey) missing.push('VITE_FIREBASE_API_KEY');
+      if (!projectId) missing.push('VITE_FIREBASE_PROJECT_ID');
+      if (!appId) missing.push('VITE_FIREBASE_APP_ID');
+      
+      const errorMsg = `Missing Firebase configuration: ${missing.join(', ')}`;
+      setErrorMessage(errorMsg);
+      console.error(errorMsg);
+    }
+  }, []);
 
   // Import these dynamically to avoid circular dependency issues
   const importAuthFunctions = async () => {
@@ -216,6 +243,34 @@ export const UnifiedAuthProvider = ({ children }: UnifiedAuthProviderProps) => {
     });
   }, [user, isLoading, hasOAuthToken]);
 
+  // Enhanced logging
+  useEffect(() => {
+    if (errorMessage) {
+      console.error("Auth Provider Error:", errorMessage);
+    }
+  }, [errorMessage]);
+
+  // Update login function to handle config errors
+  const enhancedLogin = async () => {
+    // Check config validity first
+    if (!firebaseConfigValid) {
+      setErrorMessage("Firebase configuration is invalid or incomplete. Check your environment variables.");
+      toast({
+        title: "Configuration Error",
+        description: "Firebase configuration is incomplete. Please check application setup.",
+        variant: "destructive",
+        duration: 7000
+      });
+      return;
+    }
+    
+    // Clear any previous error messages
+    setErrorMessage(null);
+    
+    // Proceed with normal login
+    await login();
+  };
+
   return (
     <UnifiedAuthContext.Provider 
       value={{ 
@@ -223,7 +278,9 @@ export const UnifiedAuthProvider = ({ children }: UnifiedAuthProviderProps) => {
         isLoading, 
         isAuthenticated: !!user,
         hasOAuthToken,
-        login,
+        firebaseConfigValid,
+        errorMessage,
+        login: enhancedLogin,
         logout
       }}
     >
