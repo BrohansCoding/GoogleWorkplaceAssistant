@@ -13,15 +13,23 @@ app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: false, limit: '10mb' }));
 
 // Configure session middleware
+// Generate a random secret if one is not provided
+const generateRandomSecret = () => {
+  return require('crypto').randomBytes(32).toString('hex');
+};
+
+// Store the generated secret in memory (it will regenerate on server restart)
+const SESSION_SECRET = process.env.SESSION_SECRET || generateRandomSecret();
+
 app.use(session({
-  secret: process.env.SESSION_SECRET || 'calendar-agent-secret',
+  secret: SESSION_SECRET,
   resave: false,
   saveUninitialized: false,
   store: new sessionStore({
     checkPeriod: 86400000 // Prune expired entries every 24h
   }),
   cookie: { 
-    secure: false, // set to true if using https
+    secure: process.env.NODE_ENV === 'production', // Only use secure in production
     maxAge: 86400000 // 24 hours
   }
 }));
