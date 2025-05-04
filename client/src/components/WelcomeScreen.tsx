@@ -58,7 +58,7 @@ const WelcomeScreen = ({ onAuthSuccess }: WelcomeScreenProps) => {
             </div>
             <h2 className="text-xl font-bold text-white mb-2">Calendar Assistant</h2>
             <p className="text-gray-400">
-              Schedule smarter with your intelligent calendar assistant. Get insights about your time usage and meeting patterns.
+              Visualize and manage your Google Calendar with a clean, organized interface. Navigate with day and week views to track your schedule.
             </p>
           </div>
           <div className="p-5 border-t border-gray-700 mt-auto">
@@ -104,7 +104,7 @@ const WelcomeScreen = ({ onAuthSuccess }: WelcomeScreenProps) => {
             </div>
             <h2 className="text-xl font-bold text-white mb-2">Email Assistant</h2>
             <p className="text-gray-400">
-              Let AI help manage your inbox. Summarize emails, draft responses, and categorize important messages.
+              Let AI help manage your inbox by automatically categorizing your emails into smart categories for better organization.
             </p>
           </div>
           <div className="p-5 border-t border-gray-700 mt-auto">
