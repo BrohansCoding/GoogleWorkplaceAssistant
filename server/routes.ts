@@ -99,6 +99,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       return res.status(200).json({ 
         message: "Authentication successful", 
         user,
+        // Return refresh token explicitly so client can store it
+        refreshToken: refreshToken || null,
+        // Include standard Google token expiry of 1 hour
+        expiresIn: 3600,
         tokenStatus: {
           googleApiToken: !!googleApiToken,
           refreshToken: !!refreshToken,

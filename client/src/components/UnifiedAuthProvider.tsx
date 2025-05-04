@@ -96,31 +96,61 @@ export const UnifiedAuthProvider = ({ children }: UnifiedAuthProviderProps) => {
   useEffect(() => {
     console.log("UnifiedAuthProvider: Initializing");
     
+    // Clear loading state after a maximum time to prevent infinite loading
+    const loadingTimeout = setTimeout(() => {
+      if (isLoading) {
+        console.log("Force-clearing loading state after timeout");
+        setIsLoading(false);
+      }
+    }, 5000);
+    
     // Subscribe to Firebase auth state changes
     const unsubscribe = onAuthStateChanged(auth, (authUser) => {
       console.log("Auth state changed:", authUser ? "LOGGED IN" : "LOGGED OUT");
       setUser(authUser);
-      setIsLoading(false);
       
       // If user is authenticated, check for OAuth token
       if (authUser) {
+        // Check for stored OAuth token
         const token = getStoredOAuthToken();
-        setHasOAuthToken(!!token);
+        const hasToken = !!token;
+        console.log("OAuth token found:", hasToken);
+        setHasOAuthToken(hasToken);
         
-        // If we have a token, sync with server and initialize refresh
+        // Always sync tokens with server
+        syncTokensWithServer(authUser).then(success => {
+          console.log("Token sync result:", success ? "SUCCESS" : "FAILED");
+        });
+        
+        // If we have a token, initialize refresh
         if (token) {
-          syncTokensWithServer(authUser);
           initializeTokenRefresh();
+          // Clear loading state
+          setIsLoading(false);
         } else {
-          // If user is authenticated but we don't have an OAuth token,
-          // it means we need to re-authenticate to get all the required scopes
-          handleAutoReauth(authUser);
+          // Give a short delay to avoid infinite loading during redirect
+          setTimeout(() => {
+            // If still no token after delay, trigger re-auth
+            const latestToken = getStoredOAuthToken();
+            if (!latestToken) {
+              handleAutoReauth(authUser);
+            } else {
+              setHasOAuthToken(true);
+              setIsLoading(false);
+            }
+          }, 1000);
         }
+      } else {
+        // Not authenticated, clear loading
+        setIsLoading(false);
       }
     });
     
     // Clean up subscription
-    return () => unsubscribe();
+    return () => {
+      clearTimeout(loadingTimeout);
+      unsubscribe();
+    };
   }, []);
   
   // Function to automatically re-authenticate if needed

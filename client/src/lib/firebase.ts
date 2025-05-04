@@ -146,10 +146,14 @@ const createCombinedProvider = () => {
   provider.addScope('profile');
   provider.addScope('email');
   
-  // Force consent screen to ensure we get all permissions and refresh token
+  // CRITICAL: These parameters ensure we get a refresh token
+  // - 'prompt=consent' forces the consent screen always
+  // - 'access_type=offline' requests a refresh token
+  // - 'include_granted_scopes=true' ensures all previously granted scopes are included
   provider.setCustomParameters({
     prompt: 'consent',
-    access_type: 'offline'
+    access_type: 'offline',
+    include_granted_scopes: 'true'
   });
   
   return provider;
@@ -246,18 +250,38 @@ export const checkRedirectResult = async () => {
 // Sign in with Google
 export const signInWithGoogle = async () => {
   try {
-    console.log("Starting Google sign-in with correct Calendar API scopes...");
+    console.log("Starting Google sign-in with ALL required API scopes...");
     
-    // Create provider with proper scopes
+    // First, clear any previous tokens to ensure we get a fresh consent screen
+    // This helps ensure we'll get a refresh token 
+    clearOAuthToken();
+    
+    // If we have any auth info stored locally, clear it first
+    localStorage.removeItem('RE_AUTH_IN_PROGRESS');
+    localStorage.removeItem('NEED_CALENDAR_WRITE');
+    localStorage.removeItem('NEED_DRIVE_ACCESS');
+    localStorage.removeItem('NEED_FULL_DRIVE_ACCESS');
+    localStorage.removeItem('AUTH_TYPE');
+    localStorage.removeItem('AUTH_MESSAGE');
+    
+    // Create provider with proper scopes - this is critical
+    // The provider MUST request all needed scopes with prompt=consent, access_type=offline
     const googleProvider = createGoogleProvider();
     
     // Try to use popup which is more reliable in many environments
     const result = await signInWithPopup(auth, googleProvider);
     console.log("Sign in with popup successful:", result.user.displayName);
     
-    // Get OAuth token for Google Calendar API
+    // Get OAuth token for Google APIs
     const credential = GoogleAuthProvider.credentialFromResult(result);
     const oauthToken = credential?.accessToken;
+    
+    // Attempt to get refresh token if available (might be in the credential)
+    // Note: popup flow doesn't always include refresh token in the credential
+    // It will be returned in the exchange request to the server
+    // TypeScript doesn't know this property exists, so we need to cast
+    const refreshToken = (credential as any)?.refreshToken;
+    console.log("OAuth refresh token in credential:", refreshToken ? "PRESENT" : "NOT AVAILABLE");
     
     if (!oauthToken) {
       console.error("Failed to get OAuth token from Google sign-in!");
@@ -269,15 +293,11 @@ export const signInWithGoogle = async () => {
       length: oauthToken?.length
     });
     
-    // Store OAuth token
-    storeOAuthToken(oauthToken);
-    
-    // Check if we successfully acquired write permission and clear flag
-    const hadRequestedWritePermission = window.localStorage.getItem('NEED_CALENDAR_WRITE') === 'true';
-    if (hadRequestedWritePermission) {
-      console.log("Successfully obtained calendar write permissions!");
-      // Clear the flag after use
-      window.localStorage.removeItem('NEED_CALENDAR_WRITE');
+    // Store OAuth token (and refresh token if available)
+    if (refreshToken) {
+      storeOAuthToken(oauthToken, 3600, refreshToken);
+    } else {
+      storeOAuthToken(oauthToken);
     }
     
     // Get Firebase ID token for our backend
@@ -289,16 +309,17 @@ export const signInWithGoogle = async () => {
       console.error("Error getting Firebase ID token:", err);
     }
     
-    // Send tokens to server
+    // Send tokens to server - important for server-side refresh
     try {
       console.log("Sending tokens to server...");
       const response = await fetch('/api/auth/google', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
-          // Send both tokens with clear names
-          oauthToken,   // For Google Calendar API
-          idToken,      // For Firebase auth
+          // Send all tokens with clear names
+          oauthToken,         // For Google API access
+          refreshToken,       // For OAuth refresh (if available)
+          idToken,            // For Firebase auth
           user: {
             uid: result.user.uid,
             displayName: result.user.displayName,
@@ -312,7 +333,17 @@ export const signInWithGoogle = async () => {
       if (!response.ok) {
         console.error("Server auth failed:", await response.text());
       } else {
-        console.log("Server auth succeeded");
+        // Check if the server response includes a refresh token
+        try {
+          const data = await response.json();
+          if (data.refreshToken && !refreshToken) {
+            console.log("Received refresh token from server exchange");
+            storeOAuthToken(oauthToken, data.expiresIn || 3600, data.refreshToken);
+          }
+          console.log("Server auth succeeded");
+        } catch (e) {
+          console.log("Server auth succeeded (no JSON response)");
+        }
       }
     } catch (err) {
       console.error("Error sending tokens to server:", err);
@@ -322,6 +353,7 @@ export const signInWithGoogle = async () => {
       success: true, 
       user: result.user,
       oauthToken,
+      refreshToken,
       idToken 
     };
   } catch (error) {
