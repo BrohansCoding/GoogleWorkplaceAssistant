@@ -1,16 +1,16 @@
 import { createRoot } from "react-dom/client";
 import App from "./App";
 import "./index.css";
-import { AuthProvider } from "./components/AuthProvider";
+import { UnifiedAuthProvider } from "./components/UnifiedAuthProvider";
 import { CalendarProvider } from "./context/CalendarContext";
 import { MobileProvider } from "./context/MobileContext";
 
 createRoot(document.getElementById("root")!).render(
-  <AuthProvider>
+  <UnifiedAuthProvider>
     <CalendarProvider>
       <MobileProvider>
         <App />
       </MobileProvider>
     </CalendarProvider>
-  </AuthProvider>
+  </UnifiedAuthProvider>
 );
