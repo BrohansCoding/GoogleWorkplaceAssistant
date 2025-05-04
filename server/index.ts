@@ -14,7 +14,7 @@ app.use(express.urlencoded({ extended: false, limit: '10mb' }));
 
 // Configure session middleware
 app.use(session({
-  secret: 'calendar-agent-secret',
+  secret: process.env.SESSION_SECRET || 'calendar-agent-secret',
   resave: false,
   saveUninitialized: false,
   store: new sessionStore({
