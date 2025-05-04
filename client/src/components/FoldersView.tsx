@@ -1,13 +1,11 @@
 import { useContext, useState, FormEvent, useEffect } from "react";
-import { MessageSquare, Folder, X, FileText, Search, Info } from "lucide-react";
+import { MessageSquare, Folder, X, FileText, Search, Info, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import FolderChatInterface from "@/components/FolderChatInterface";
 import { MobileContext } from "@/context/MobileContext";
 import { useToast } from "@/hooks/use-toast";
-import { forceReauthWithUpdatedScopes } from "@/lib/firebase";
-import DriveAuthButton from "@/components/DriveAuthButton";
-import { useAuth } from "@/hooks/useAuth";
+import { useUnifiedAuth } from "@/hooks/useUnifiedAuth";
 
 // Define interface for Drive item metadata
 interface DriveItemMetadata {
@@ -21,26 +19,26 @@ interface DriveItemMetadata {
 
 const FoldersView = () => {
   const mobileContext = useContext(MobileContext);
-  const { user } = useAuth();
+  const { user, isAuthenticated, hasOAuthToken } = useUnifiedAuth();
   const [showChat, setShowChat] = useState(true);
   const [driveUrl, setDriveUrl] = useState<string>("");
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [currentDriveItem, setCurrentDriveItem] = useState<DriveItemMetadata | null>(null);
-  const [hasDriveAuth, setHasDriveAuth] = useState<boolean>(false);
   const { toast } = useToast();
   
   // Get mobile state safely
   const isMobile = mobileContext?.isMobile || false;
   
-  // Function to handle successful Drive authentication
-  const handleDriveAuthSuccess = () => {
-    setHasDriveAuth(true);
-    toast({
-      title: "Drive Access Granted",
-      description: "You can now access your Google Drive files and folders.",
-      variant: "default",
-    });
-  };
+  // Function to handle authentication success
+  useEffect(() => {
+    if (isAuthenticated && hasOAuthToken) {
+      toast({
+        title: "Drive Access Granted",
+        description: "You can now access your Google Drive files and folders.",
+        variant: "default",
+      });
+    }
+  }, [isAuthenticated, hasOAuthToken, toast]);
 
   // Extract the file/folder ID from a Google Drive URL
   const extractIdFromUrl = (url: string): string | null => {
@@ -195,53 +193,42 @@ const FoldersView = () => {
             </p>
           </div>
           
-          {/* Drive Authentication Section */}
+          {/* Drive URL Form Section */}
           <div className="px-6 pb-4">
-            <div className="mb-5 p-4 bg-emerald-900/20 border border-emerald-900/30 rounded-lg">
-              <div className="flex flex-col items-center">
-                <div className="mb-3 text-center">
-                  <h3 className="text-md font-semibold text-emerald-400 mb-1">Step 1: Connect to Google Drive</h3>
-                  <p className="text-sm text-gray-300 mb-2">
-                    First, grant this app permission to access your Google Drive files
+            {!isAuthenticated || !hasOAuthToken ? (
+              <div className="mb-5 p-6 bg-emerald-900/20 border border-emerald-900/30 rounded-lg">
+                <div className="flex flex-col items-center">
+                  <Loader2 className="h-10 w-10 text-emerald-400 animate-spin mb-4" />
+                  <h3 className="text-lg font-semibold text-emerald-400 mb-2">Connecting to Google Drive</h3>
+                  <p className="text-sm text-gray-300 mb-2 text-center">
+                    Please wait while we establish a connection to your Google account...
                   </p>
-                  <DriveAuthButton onAuthSuccess={handleDriveAuthSuccess} />
                 </div>
-                <div className="w-full border-t border-emerald-900/30 my-3"></div>
-                <p className="text-xs text-gray-400 mb-2">This permission is separate from Calendar access</p>
               </div>
-            </div>
-            
-            {/* Google Drive URL Form */}
-            <form onSubmit={handleSubmit} className="mb-5">
-              <h3 className="text-md font-semibold text-emerald-400 mb-3">Step 2: Enter a Drive File or Folder URL</h3>
-              <div className="relative">
-                <Input
-                  type="text"
-                  placeholder={hasDriveAuth 
-                    ? "Paste a Google Drive file or folder URL..." 
-                    : "Please connect to Drive first (Step 1)..."}
-                  className="w-full pl-4 pr-12 py-3 bg-gray-900 border border-emerald-800 text-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                  value={driveUrl}
-                  onChange={(e) => setDriveUrl(e.target.value)}
-                  disabled={isLoading || !hasDriveAuth}
-                />
-                <Button 
-                  type="submit"
-                  size="sm"
-                  className="absolute right-1 top-1/2 -translate-y-1/2 h-8 bg-emerald-700 hover:bg-emerald-600 rounded-md flex items-center justify-center"
-                  disabled={!driveUrl.trim() || isLoading || !hasDriveAuth}
-                >
-                  {isLoading ? "Loading..." : "Connect"}
-                  <Search className="h-4 w-4 ml-1" />
-                </Button>
-              </div>
-              {!hasDriveAuth && (
-                <p className="text-amber-400 text-xs mt-2 flex items-center gap-1">
-                  <Info className="h-3 w-3" />
-                  Complete Step 1 to connect to Google Drive first
-                </p>
-              )}
-            </form>
+            ) : (
+              <form onSubmit={handleSubmit} className="mb-5">
+                <h3 className="text-md font-semibold text-emerald-400 mb-3">Enter a Drive File or Folder URL</h3>
+                <div className="relative">
+                  <Input
+                    type="text"
+                    placeholder="Paste a Google Drive file or folder URL..."
+                    className="w-full pl-4 pr-12 py-3 bg-gray-900 border border-emerald-800 text-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                    value={driveUrl}
+                    onChange={(e) => setDriveUrl(e.target.value)}
+                    disabled={isLoading}
+                  />
+                  <Button 
+                    type="submit"
+                    size="sm"
+                    className="absolute right-1 top-1/2 -translate-y-1/2 h-8 bg-emerald-700 hover:bg-emerald-600 rounded-md flex items-center justify-center"
+                    disabled={!driveUrl.trim() || isLoading}
+                  >
+                    {isLoading ? "Loading..." : "Connect"}
+                    <Search className="h-4 w-4 ml-1" />
+                  </Button>
+                </div>
+              </form>
+            )}
             
             <div className="bg-gray-900/80 p-4 rounded-lg border border-emerald-900 mb-5">
               <h3 className="text-sm font-semibold text-emerald-400 mb-2">How it works:</h3>
