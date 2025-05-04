@@ -4,17 +4,16 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ChevronLeft, ChevronRight, Users, VideoIcon, MapPin, RefreshCw, Calendar as CalendarDayIcon, CalendarDays, Info } from "lucide-react";
 import { useCalendar } from "@/hooks/useCalendar";
-import { useAuth } from "@/hooks/useAuth";
+import { useUnifiedAuth } from "@/hooks/useUnifiedAuth";
 import { CalendarEventType } from "@shared/schema";
 import { organizeEventsByHour, fetchCalendarEventsRange } from "@/lib/calendarApi";
 import { useToast } from "@/hooks/use-toast";
-import CalendarAuthButton from "@/components/CalendarAuthButton";
 
 const CalendarView = () => {
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [viewType, setViewType] = useState<'day' | 'week'>('day');
   const { events, isLoading, fetchEvents } = useCalendar();
-  const { user } = useAuth();
+  const { user, isAuthenticated, hasOAuthToken } = useUnifiedAuth();
   const [timeSlots, setTimeSlots] = useState<{
     hour: number;
     time: string;
@@ -22,15 +21,13 @@ const CalendarView = () => {
   }[]>([]);
   const [weekEvents, setWeekEvents] = useState<CalendarEventType[]>([]);
   const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
-  const [hasCalendarAuth, setHasCalendarAuth] = useState<boolean>(!!user);
   const { toast } = useToast();
   
-  // Function to handle successful calendar authentication
-  const handleCalendarAuthSuccess = () => {
-    setHasCalendarAuth(true);
+  // Function to handle successful data loading
+  const handleRefreshData = () => {
     toast({
-      title: "Calendar Access Granted",
-      description: "You can now access your Google Calendar events.",
+      title: "Calendar Data Refreshed",
+      description: "Your calendar events have been refreshed.",
       variant: "default",
     });
     
@@ -146,18 +143,18 @@ const CalendarView = () => {
   return (
     <section className="w-full h-full bg-gray-900">
       <div className="p-4">
-        {!user ? (
+        {!hasOAuthToken ? (
           <div className="flex flex-col items-center justify-center h-full p-8 bg-gray-800/60 backdrop-blur-sm">
             <div className="text-center max-w-md p-8 rounded-xl bg-gray-800/80 shadow-lg border border-gray-700">
               <div className="w-20 h-20 mx-auto mb-6 rounded-full bg-blue-900 flex items-center justify-center">
                 <CalendarDayIcon className="h-10 w-10 text-blue-400" />
               </div>
-              <h2 className="text-2xl font-bold mb-4 text-blue-400">Calendar Assistant</h2>
+              <h2 className="text-2xl font-bold mb-4 text-blue-400">Calendar Loading</h2>
               <p className="text-gray-300 mb-6">
-                Connect your Google Calendar to view and manage your schedule, analyze your time usage, and get AI-powered insights about your calendar.
+                We're connecting to your Google Calendar data. This should only take a moment...
               </p>
-              <div className="mt-2">
-                <CalendarAuthButton onAuthSuccess={handleCalendarAuthSuccess} />
+              <div className="flex justify-center">
+                <div className="animate-spin rounded-full h-10 w-10 border-2 border-gray-600 border-t-blue-400" />
               </div>
             </div>
           </div>
