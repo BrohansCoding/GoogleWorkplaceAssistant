@@ -180,134 +180,119 @@ const FoldersView = () => {
   return (
     <div className="flex flex-col h-full bg-gray-800/60 backdrop-blur-sm relative overflow-hidden">
       <div className="p-4 flex-1 overflow-auto">
-        <div className="text-center max-w-xl mx-auto p-6 rounded-xl bg-gray-800/80 shadow-lg border border-gray-700">
-          <div className="w-20 h-20 mx-auto mb-6 rounded-full bg-emerald-900 flex items-center justify-center">
-            <Folder className="h-10 w-10 text-emerald-400" />
+        <div className="max-w-xl mx-auto rounded-xl bg-gray-800/80 shadow-lg border border-gray-700">
+          {/* Main Drive Assistant Info Section */}
+          <div className="p-6 text-center">
+            <div className="w-20 h-20 mx-auto mb-6 rounded-full bg-emerald-900 flex items-center justify-center">
+              <Folder className="h-10 w-10 text-emerald-400" />
+            </div>
+            <h2 className="text-2xl font-bold mb-4 text-emerald-400">Google Drive Assistant</h2>
+            <p className="text-gray-300 mb-4">
+              Access your Google Drive files and folders. Simply paste a Google Drive link below to analyze content you've specifically shared with this app.
+            </p>
+            <p className="text-sm text-gray-400 mb-4 italic">
+              Note: Due to Google's permission model, this app can only access files and folders that you've explicitly opened with it. The app cannot see your entire Drive.
+            </p>
           </div>
-          <h2 className="text-2xl font-bold mb-4 text-emerald-400">Google Drive Assistant</h2>
-          <p className="text-gray-300 mb-4">
-            Access your Google Drive files and folders. Simply paste a Google Drive link below to analyze content you've specifically shared with this app.
-          </p>
-          <p className="text-sm text-gray-400 mb-4 italic">
-            Note: Due to Google's permission model, this app can only access files and folders that you've explicitly opened with it. The app cannot see your entire Drive.
-          </p>
           
           {/* Drive Authentication Section */}
-          <div className="mb-5 p-4 bg-emerald-900/20 border border-emerald-900/30 rounded-lg">
-            <div className="flex flex-col items-center">
-              <div className="mb-3 text-center">
-                <h3 className="text-md font-semibold text-emerald-400 mb-1">Step 1: Connect to Google Drive</h3>
-                <p className="text-sm text-gray-300 mb-2">
-                  First, grant this app permission to access your Google Drive files
-                </p>
-                <DriveAuthButton onAuthSuccess={handleDriveAuthSuccess} />
+          <div className="px-6 pb-4">
+            <div className="mb-5 p-4 bg-emerald-900/20 border border-emerald-900/30 rounded-lg">
+              <div className="flex flex-col items-center">
+                <div className="mb-3 text-center">
+                  <h3 className="text-md font-semibold text-emerald-400 mb-1">Step 1: Connect to Google Drive</h3>
+                  <p className="text-sm text-gray-300 mb-2">
+                    First, grant this app permission to access your Google Drive files
+                  </p>
+                  <DriveAuthButton onAuthSuccess={handleDriveAuthSuccess} />
+                </div>
+                <div className="w-full border-t border-emerald-900/30 my-3"></div>
+                <p className="text-xs text-gray-400 mb-2">This permission is separate from Calendar access</p>
               </div>
-              <div className="w-full border-t border-emerald-900/30 my-3"></div>
-              <p className="text-xs text-gray-400 mb-2">This permission is separate from Calendar access</p>
+            </div>
+            
+            {/* Google Drive URL Form */}
+            <form onSubmit={handleSubmit} className="mb-5">
+              <h3 className="text-md font-semibold text-emerald-400 mb-3">Step 2: Enter a Drive File or Folder URL</h3>
+              <div className="relative">
+                <Input
+                  type="text"
+                  placeholder={hasDriveAuth 
+                    ? "Paste a Google Drive file or folder URL..." 
+                    : "Please connect to Drive first (Step 1)..."}
+                  className="w-full pl-4 pr-12 py-3 bg-gray-900 border border-emerald-800 text-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                  value={driveUrl}
+                  onChange={(e) => setDriveUrl(e.target.value)}
+                  disabled={isLoading || !hasDriveAuth}
+                />
+                <Button 
+                  type="submit"
+                  size="sm"
+                  className="absolute right-1 top-1/2 -translate-y-1/2 h-8 bg-emerald-700 hover:bg-emerald-600 rounded-md flex items-center justify-center"
+                  disabled={!driveUrl.trim() || isLoading || !hasDriveAuth}
+                >
+                  {isLoading ? "Loading..." : "Connect"}
+                  <Search className="h-4 w-4 ml-1" />
+                </Button>
+              </div>
+              {!hasDriveAuth && (
+                <p className="text-amber-400 text-xs mt-2 flex items-center gap-1">
+                  <Info className="h-3 w-3" />
+                  Complete Step 1 to connect to Google Drive first
+                </p>
+              )}
+            </form>
+            
+            <div className="bg-gray-900/80 p-4 rounded-lg border border-emerald-900 mb-5">
+              <h3 className="text-sm font-semibold text-emerald-400 mb-2">How it works:</h3>
+              <ul className="text-sm text-gray-300 space-y-2">
+                <li className="flex items-center">
+                  <span className="inline-block w-2 h-2 bg-emerald-500 rounded-full mr-2"></span>
+                  Paste any Google Drive file or folder link above
+                </li>
+                <li className="flex items-center">
+                  <span className="inline-block w-2 h-2 bg-emerald-500 rounded-full mr-2"></span>
+                  Ask questions about the file content or folder contents
+                </li>
+                <li className="flex items-center">
+                  <span className="inline-block w-2 h-2 bg-emerald-500 rounded-full mr-2"></span>
+                  Get AI-powered responses based on your Drive items
+                </li>
+              </ul>
             </div>
           </div>
           
-          {/* Google Drive URL Form */}
-          <form onSubmit={handleSubmit} className="mb-5">
-            <h3 className="text-md font-semibold text-emerald-400 mb-3">Step 2: Enter a Drive File or Folder URL</h3>
-            <div className="relative">
-              <Input
-                type="text"
-                placeholder={hasDriveAuth 
-                  ? "Paste a Google Drive file or folder URL..." 
-                  : "Please connect to Drive first (Step 1)..."}
-                className="w-full pl-4 pr-12 py-3 bg-gray-900 border border-emerald-800 text-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                value={driveUrl}
-                onChange={(e) => setDriveUrl(e.target.value)}
-                disabled={isLoading || !hasDriveAuth}
-              />
-              <Button 
-                type="submit"
-                size="sm"
-                className="absolute right-1 top-1/2 -translate-y-1/2 h-8 bg-emerald-700 hover:bg-emerald-600 rounded-md flex items-center justify-center"
-                disabled={!driveUrl.trim() || isLoading || !hasDriveAuth}
-              >
-                {isLoading ? "Loading..." : "Connect"}
-                <Search className="h-4 w-4 ml-1" />
-              </Button>
-            </div>
-            {!hasDriveAuth && (
-              <p className="text-amber-400 text-xs mt-2 flex items-center gap-1">
-                <Info className="h-3 w-3" />
-                Complete Step 1 to connect to Google Drive first
-              </p>
-            )}
-          </form>
-          
-          <div className="bg-gray-900/80 p-4 rounded-lg border border-emerald-900">
-            <h3 className="text-sm font-semibold text-emerald-400 mb-2">How it works:</h3>
-            <ul className="text-sm text-gray-300 space-y-2">
-              <li className="flex items-center">
-                <span className="inline-block w-2 h-2 bg-emerald-500 rounded-full mr-2"></span>
-                Paste any Google Drive file or folder link above
-              </li>
-              <li className="flex items-center">
-                <span className="inline-block w-2 h-2 bg-emerald-500 rounded-full mr-2"></span>
-                Ask questions about the file content or folder contents
-              </li>
-              <li className="flex items-center">
-                <span className="inline-block w-2 h-2 bg-emerald-500 rounded-full mr-2"></span>
-                Get AI-powered responses based on your Drive items
-              </li>
-            </ul>
-          </div>
-        </div>
-      </div>
-      
-      {/* Fixed Chat Sidebar */}
-      <div 
-        className={`fixed right-0 top-0 bottom-0 w-[320px] bg-gray-800 border-l border-gray-700 shadow-lg z-10 
-          ${showChat ? 'translate-x-0' : 'translate-x-full md:translate-x-0'} 
-          transition-transform duration-300`}
-        style={{
-          top: isMobile ? '72px' : '72px',
-          height: isMobile ? 'calc(100% - 132px)' : 'calc(100% - 72px)'
-        }}
-      >
-        <div className="h-full flex flex-col">
-          {/* Chat Header */}
-          <div className="p-3 border-b border-gray-700 bg-gray-800 flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <MessageSquare className="h-5 w-5 text-emerald-400" />
-              <h3 className="text-sm font-medium text-gray-200">Folder Assistant</h3>
-            </div>
-            {isMobile && (
-              <Button 
-                variant="ghost"
-                size="icon"
-                className="h-7 w-7 rounded-full hover:bg-gray-700"
-                onClick={() => setShowChat(false)}
-              >
-                <X className="h-4 w-4 text-gray-400" />
-              </Button>
-            )}
-          </div>
-          
-          {/* Current Item Banner */}
+          {/* Chat Section Below the Instructions */}
           {currentDriveItem && (
-            <div className="mx-3 mt-2 p-2 bg-emerald-950/50 border border-emerald-800/50 rounded-md flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                {currentDriveItem.type === 'folder' ? (
-                  <Folder className="h-4 w-4 text-emerald-400" />
-                ) : (
-                  <FileText className="h-4 w-4 text-emerald-400" />
-                )}
-                <span className="text-xs text-emerald-300 truncate max-w-[160px]">
-                  {currentDriveItem.name}
-                </span>
+            <div className="border-t border-gray-700 mt-2">
+              {/* Chat Header */}
+              <div className="p-3 bg-gray-800 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <MessageSquare className="h-5 w-5 text-emerald-400" />
+                  <h3 className="text-sm font-medium text-gray-200">Folder Assistant</h3>
+                </div>
+              </div>
+              
+              {/* Current Item Banner */}
+              <div className="mx-3 mt-2 p-2 bg-emerald-950/50 border border-emerald-800/50 rounded-md flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  {currentDriveItem.type === 'folder' ? (
+                    <Folder className="h-4 w-4 text-emerald-400" />
+                  ) : (
+                    <FileText className="h-4 w-4 text-emerald-400" />
+                  )}
+                  <span className="text-xs text-emerald-300 truncate max-w-[160px]">
+                    {currentDriveItem.name}
+                  </span>
+                </div>
+              </div>
+              
+              {/* Folder Chat Interface */}
+              <div className="h-[400px] overflow-hidden">
+                <FolderChatInterface driveItem={currentDriveItem} />
               </div>
             </div>
           )}
-          
-          {/* Folder Chat Interface */}
-          <div className="flex-1 overflow-hidden">
-            <FolderChatInterface driveItem={currentDriveItem} />
-          </div>
         </div>
       </div>
       
