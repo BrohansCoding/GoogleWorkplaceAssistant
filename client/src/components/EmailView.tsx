@@ -7,6 +7,7 @@ import { fetchGmailThreads, categorizeGmailThreads } from "@/lib/gmailApi";
 import { 
   getUserCategories, 
   createCustomCategory, 
+  deleteCustomCategory,
   initializeUserCategories,
   DEFAULT_EMAIL_CATEGORIES 
 } from "@/lib/emailCategories";
@@ -292,9 +293,14 @@ const EmailView = () => {
       });
     }
     
-    // If this is a custom category stored in Firebase, send a delete request to the server
+    // If this is a custom category stored in Firebase, delete it from Firestore
     if (user && !categoryToDelete.isDefault) {
       try {
+        // First we'll delete the category from Firestore
+        await deleteCustomCategory(user, categoryId);
+        console.log(`Successfully deleted category "${categoryToDelete.name}" from Firestore`);
+        
+        // Then we'll also send a delete request to the server for email redistribution
         const response = await fetch(`/api/gmail/categories/${categoryId}`, {
           method: 'DELETE',
           headers: {
@@ -308,10 +314,18 @@ const EmailView = () => {
         
         if (!response.ok) {
           console.error(`Error deleting category from server: ${response.status}`);
-          // Continue anyway since we've already updated the UI
+          // Continue anyway since we've already deleted from Firestore and updated the UI
         }
       } catch (error) {
-        console.error("Error deleting category from server:", error);
+        console.error("Error deleting category:", error);
+        
+        // Show a toast that the Firestore deletion might have failed
+        toast({
+          title: "Warning",
+          description: "The category might not have been fully removed from your account. Please try again later.",
+          variant: "default"
+        });
+        
         // Continue anyway since we've already updated the UI
       }
     }
