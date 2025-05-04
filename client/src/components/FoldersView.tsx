@@ -124,7 +124,7 @@ const FoldersView = () => {
         credentials: "include",
       });
       
-      // Handle permission errors - force re-auth with updated scopes
+      // Handle permission errors using the unified auth system
       if (response.status === 403 || response.status === 401) {
         const errorData = await response.json();
         // Check for either PERMISSION_DENIED, ACCESS_DENIED or any code that indicates insufficient permissions
@@ -133,13 +133,11 @@ const FoldersView = () => {
             response.status === 403) {
           // We need additional permissions
           toast({
-            title: "Additional Google Drive Permissions Required",
-            description: "You need to grant full Drive access permissions. Please sign in again.",
-            variant: "default",
+            title: "Google Drive Permission Error",
+            description: "There was a permission issue accessing this item. Please try again with another file/folder.",
+            variant: "destructive",
           });
           
-          // Force re-auth with updated scopes
-          await forceReauthWithUpdatedScopes();
           setIsLoading(false);
           return;
         }
