@@ -111,6 +111,10 @@ export const UnifiedAuthProvider = ({ children }: UnifiedAuthProviderProps) => {
         if (token) {
           syncTokensWithServer(authUser);
           initializeTokenRefresh();
+        } else {
+          // If user is authenticated but we don't have an OAuth token,
+          // it means we need to re-authenticate to get all the required scopes
+          handleAutoReauth(authUser);
         }
       }
     });
@@ -118,6 +122,36 @@ export const UnifiedAuthProvider = ({ children }: UnifiedAuthProviderProps) => {
     // Clean up subscription
     return () => unsubscribe();
   }, []);
+  
+  // Function to automatically re-authenticate if needed
+  const handleAutoReauth = async (currentUser: User) => {
+    try {
+      // Check if we're already processing re-auth
+      if (localStorage.getItem('RE_AUTH_IN_PROGRESS') === 'true') {
+        return;
+      }
+      
+      console.log("User authenticated but no OAuth token, initiating automatic re-auth");
+      localStorage.setItem('RE_AUTH_IN_PROGRESS', 'true');
+      
+      // Temporarily set loading to true during re-auth
+      setIsLoading(true);
+      
+      // Import the signInWithGoogle function dynamically
+      const { signInWithGoogle } = await importAuthFunctions();
+      
+      // Attempt to sign in with Google to get OAuth token
+      await signInWithGoogle();
+      
+      // Clear the re-auth flag
+      localStorage.removeItem('RE_AUTH_IN_PROGRESS');
+      
+    } catch (error) {
+      console.error("Auto re-auth failed:", error);
+      localStorage.removeItem('RE_AUTH_IN_PROGRESS');
+      setIsLoading(false);
+    }
+  };
 
   // Store authentication state in local storage to handle tab syncing
   useEffect(() => {

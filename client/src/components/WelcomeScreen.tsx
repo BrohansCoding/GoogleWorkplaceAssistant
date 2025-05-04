@@ -1,5 +1,6 @@
-import { ArrowRight, CalendarIcon, Folder, Mail, BrainCircuit, RocketIcon, SparklesIcon } from "lucide-react";
+import { ArrowRight, CalendarIcon, Folder, Mail, BrainCircuit, RocketIcon, SparklesIcon, CheckCircle } from "lucide-react";
 import UnifiedLoginButton from "./UnifiedLoginButton";
+import { Button } from "@/components/ui/button";
 
 interface WelcomeScreenProps {
   onAuthSuccess?: () => void;
@@ -11,15 +12,40 @@ const WelcomeScreen = ({ onAuthSuccess }: WelcomeScreenProps) => {
       {/* Hero section */}
       <div className="w-full bg-gradient-to-r from-blue-900/40 to-emerald-800/30 backdrop-blur p-8 md:p-16 flex flex-col items-center">
         <h1 className="text-3xl md:text-4xl font-bold text-white mb-4 text-center">Google Workspace Assistant</h1>
-        <p className="text-lg text-gray-300 max-w-2xl text-center">
+        <p className="text-lg text-gray-300 max-w-2xl text-center mb-6">
           Connect your Google Workspace and get AI-powered assistance for your calendar, files, and email
         </p>
         
-        <UnifiedLoginButton 
-          className="mt-8 bg-emerald-600 hover:bg-emerald-500 text-white px-8 py-4 text-lg rounded-full flex items-center gap-2"
-          text="Get Started"
-          onSuccess={onAuthSuccess}
-        />
+        <div className="flex flex-col items-center bg-gray-800/60 p-6 rounded-lg border border-gray-700 max-w-xl w-full mb-6">
+          <h2 className="text-xl font-semibold text-white mb-4">One-Click Access to All Services</h2>
+          <p className="text-gray-300 text-center mb-4">
+            Sign in once to connect all your Google services - Calendar, Drive, and Email.
+            We'll request the necessary permissions in a single step.
+          </p>
+          
+          <div className="flex flex-col sm:flex-row gap-4 justify-center items-center w-full mb-4">
+            <div className="flex items-center gap-2 text-green-400">
+              <CheckCircle className="h-5 w-5" />
+              <span>Google Calendar</span>
+            </div>
+            <div className="flex items-center gap-2 text-green-400">
+              <CheckCircle className="h-5 w-5" />
+              <span>Google Drive</span>
+            </div>
+            <div className="flex items-center gap-2 text-green-400">
+              <CheckCircle className="h-5 w-5" />
+              <span>Gmail</span>
+            </div>
+          </div>
+          
+          <UnifiedLoginButton 
+            className="mt-2 bg-emerald-600 hover:bg-emerald-500 text-white px-8 py-4 text-lg rounded-full flex items-center gap-2 w-full sm:w-auto"
+            text="Get Started with All Services"
+            onSuccess={onAuthSuccess}
+            showIcon={true}
+            fullWidth={true}
+          />
+        </div>
       </div>
       
       {/* Agent cards */}
@@ -36,12 +62,14 @@ const WelcomeScreen = ({ onAuthSuccess }: WelcomeScreenProps) => {
             </p>
           </div>
           <div className="p-5 border-t border-gray-700 mt-auto">
-            <UnifiedLoginButton
+            <Button
               variant="outline"
               className="w-full justify-between group"
-              text="Connect Calendar"
-              onSuccess={onAuthSuccess}
-            />
+              onClick={onAuthSuccess}
+            >
+              <span>Explore Calendar</span>
+              <ArrowRight className="h-4 w-4 group-hover:translate-x-1 transition-transform" />
+            </Button>
           </div>
         </div>
         
@@ -57,12 +85,14 @@ const WelcomeScreen = ({ onAuthSuccess }: WelcomeScreenProps) => {
             </p>
           </div>
           <div className="p-5 border-t border-gray-700 mt-auto">
-            <UnifiedLoginButton
+            <Button
               variant="outline"
               className="w-full justify-between group"
-              text="Connect Drive"
-              onSuccess={onAuthSuccess}
-            />
+              onClick={onAuthSuccess}
+            >
+              <span>Explore Drive</span>
+              <ArrowRight className="h-4 w-4 group-hover:translate-x-1 transition-transform" />
+            </Button>
           </div>
         </div>
         
@@ -78,12 +108,14 @@ const WelcomeScreen = ({ onAuthSuccess }: WelcomeScreenProps) => {
             </p>
           </div>
           <div className="p-5 border-t border-gray-700 mt-auto">
-            <UnifiedLoginButton
+            <Button
               variant="outline"
               className="w-full justify-between group"
-              text="Connect Email"
-              onSuccess={onAuthSuccess}
-            />
+              onClick={onAuthSuccess}
+            >
+              <span>Explore Email</span>
+              <ArrowRight className="h-4 w-4 group-hover:translate-x-1 transition-transform" />
+            </Button>
           </div>
         </div>
       </div>

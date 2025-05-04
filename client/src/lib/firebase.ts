@@ -129,16 +129,18 @@ const createCombinedProvider = () => {
   
   console.log('Creating Google provider with FULL permissions for Calendar, Drive, and Gmail...');
   
-  // Calendar scopes
+  // Calendar scopes - full access
   provider.addScope('https://www.googleapis.com/auth/calendar');           // Full access to Calendar
   provider.addScope('https://www.googleapis.com/auth/calendar.events');    // Full access to Events
   
-  // Drive scopes
+  // Drive scopes - full access
   provider.addScope('https://www.googleapis.com/auth/drive');              // Full access to Drive
   provider.addScope('https://www.googleapis.com/auth/drive.file');         // Access to files created/opened by the app
   
   // Gmail scopes
   provider.addScope('https://www.googleapis.com/auth/gmail.readonly');     // Read-only access to Gmail
+  provider.addScope('https://www.googleapis.com/auth/gmail.modify');       // Modify but not delete emails
+  provider.addScope('https://www.googleapis.com/auth/gmail.labels');       // Manage labels
   
   // Always include these basic scopes
   provider.addScope('profile');

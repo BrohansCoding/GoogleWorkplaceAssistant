@@ -154,21 +154,34 @@ export const refreshOAuthToken = async (): Promise<TokenData | null> => {
   }
 };
 
+// Store timer ID for cleanup
+let tokenRefreshTimerId: number | null = null;
+
 // Schedule token refresh
 export const scheduleTokenRefresh = (tokenData: TokenData) => {
+  // Clear any existing refresh timer
+  if (tokenRefreshTimerId !== null) {
+    clearTimeout(tokenRefreshTimerId);
+    tokenRefreshTimerId = null;
+  }
+
   if (!tokenData.refreshToken) return;
   
   const timeUntilRefresh = tokenData.expiry - Date.now() - TOKEN_REFRESH_THRESHOLD;
   if (timeUntilRefresh <= 0) {
     // Token is already expired or will expire soon, refresh immediately
+    console.log('Token is already near expiration, refreshing immediately');
     refreshOAuthToken();
     return;
   }
   
-  console.log(`Scheduling token refresh in ${Math.floor(timeUntilRefresh / 1000 / 60)} minutes`);
+  // Schedule refresh at 50% of the remaining time to ensure we don't cut it too close
+  const refreshTime = Math.min(timeUntilRefresh, (tokenData.expiry - Date.now()) / 2);
+  
+  console.log(`Scheduling token refresh in ${Math.floor(refreshTime / 1000 / 60)} minutes (${refreshTime}ms)`);
   
   // Set timeout to refresh token
-  setTimeout(() => {
+  tokenRefreshTimerId = window.setTimeout(() => {
     console.log('Token refresh timer triggered');
     refreshOAuthToken().then(newToken => {
       if (newToken) {
@@ -176,9 +189,16 @@ export const scheduleTokenRefresh = (tokenData: TokenData) => {
         // The refreshOAuthToken function already schedules the next refresh
       } else {
         console.log('Token refresh failed');
+        
+        // Try again in 1 minute if refresh failed but we still have time
+        const retryTime = tokenData.expiry - Date.now() - 30000; // 30 seconds before actual expiry
+        if (retryTime > 0) {
+          console.log(`Will retry refresh in 1 minute`);
+          tokenRefreshTimerId = window.setTimeout(() => refreshOAuthToken(), 60000);
+        }
       }
     });
-  }, timeUntilRefresh);
+  }, refreshTime);
 };
 
 // Function to synchronize token with the server
